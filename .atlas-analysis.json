@@ -1,0 +1,119 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "VueList",
+  "projectDescription": "Simplified API-based list rendering for Vue 3",
+  "theme": "palm",
+  "primaryColor": "#42b883",
+  "lightColor": "#42d392",
+  "darkColor": "#359268",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "why-vue-list",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/request-handler",
+              "configuration/state-manager",
+              "configuration/options"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/overview",
+              "components/vue-list",
+              "components/items",
+              "components/pagination",
+              "components/load-more",
+              "components/search",
+              "components/per-page",
+              "components/go-to",
+              "components/summary",
+              "components/loader",
+              "components/initial-loader",
+              "components/error",
+              "components/empty",
+              "components/refresh",
+              "components/attributes"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/basic-usage",
+              "guides/pagination-modes",
+              "guides/filtering-and-sorting",
+              "guides/state-persistence",
+              "guides/custom-styling"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/plugin",
+              "api/context-object",
+              "api/request-data"
+            ]
+          },
+          {
+            "group": "Component Props",
+            "pages": [
+              "api/components/vue-list-props",
+              "api/components/items-props",
+              "api/components/pagination-props",
+              "api/components/search-props"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Headless UI components for complete design control",
+    "Centralized request handling with customizable API logic",
+    "Reactive state management for pagination, filtering, and sorting",
+    "Built-in components for pagination, search, loaders, and error states",
+    "State persistence support (localStorage or custom)",
+    "Multiple pagination modes (pagination, load-more)",
+    "TypeScript support",
+    "Vue 2 and Vue 3 compatible"
+  ],
+  "publicApiSurface": [
+    "VueList (root component)",
+    "VueListItems",
+    "VueListPagination",
+    "VueListLoadMore",
+    "VueListSearch",
+    "VueListPerPage",
+    "VueListGoTo",
+    "VueListSummary",
+    "VueListLoader",
+    "VueListInitialLoader",
+    "VueListError",
+    "VueListEmpty",
+    "VueListRefresh",
+    "VueListAttributes",
+    "requestHandler (config)",
+    "stateManager (config)",
+    "componentPrefix (config)",
+    "itemProps (config)",
+    "typeAdapters (config)"
+  ]
+}
