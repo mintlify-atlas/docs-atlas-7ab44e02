@@ -1,0 +1,583 @@
+---
+title: Filtering and Sorting
+description: Learn how to implement filtering, sorting, and search in your VueList components
+---
+
+## Overview
+
+VueList makes it easy to implement filtering, sorting, and search functionality. All of these features are reactive — when values change, VueList automatically refetches data with the updated parameters.
+
+## Search
+
+The `<VueListSearch>` component provides a debounced search input that automatically triggers data refetch.
+
+### Basic Search
+
+```vue
+<template>
+  <VueList endpoint="users" :per-page="20">
+    <div class="search-bar">
+      <VueListSearch />
+    </div>
+    
+    <VueListItems>
+      <template #item="{ item }">
+        <div class="user">{{ item.name }}</div>
+      </template>
+    </VueListItems>
+    
+    <VueListPagination />
+  </VueList>
+</template>
+```
+
+### Custom Search Input
+
+You can fully customize the search input appearance:
+
+```vue
+<VueListSearch v-slot="{ search, setSearch }">
+  <div class="search-container">
+    <input 
+      type="search"
+      :value="search"
+      @input="setSearch($event.target.value)"
+      placeholder="Search users..."
+      class="search-input"
+    />
+    <svg class="search-icon">
+      <!-- Your search icon -->
+    </svg>
+  </div>
+</VueListSearch>
+```
+
+### Debounce Time
+
+By default, search is debounced by 1000ms (1 second). You can customize this:
+
+```vue
+<VueListSearch :debounce-time="500" />
+```
+
+<Tip>
+  Setting a debounce time prevents excessive API calls while the user is typing. 500-1000ms is usually a good balance between responsiveness and reducing server load.
+</Tip>
+
+### Initial Search Value
+
+You can set an initial search value:
+
+```vue
+<VueList 
+  endpoint="products" 
+  search="laptop"
+>
+  <VueListSearch />
+  <!-- ... -->
+</VueList>
+```
+
+### How Search Works
+
+When the user types in the search input:
+
+1. The input is debounced based on `debounce-time`
+2. After the debounce delay, VueList:
+   - Resets to page 1
+   - Calls your `requestHandler` with the updated `search` value
+   - You handle the search logic in your API/requestHandler
+
+```js main.js
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, search } = context
+    
+    return axios.get(`/api/${endpoint}`, {
+      params: {
+        page,
+        limit: perPage,
+        q: search,  // Send search term to your API
+      }
+    })
+    .then(({ data }) => ({
+      items: data.results,
+      count: data.total
+    }))
+  }
+})
+```
+
+## Sorting
+
+VueList tracks sorting state through `sortBy` and `sortOrder` props.
+
+### Basic Sorting
+
+Set initial sort values:
+
+```vue
+<VueList 
+  endpoint="products"
+  sort-by="price"
+  sort-order="asc"
+>
+  <VueListItems>
+    <template #item="{ item }">
+      <div>{{ item.name }} - ${{ item.price }}</div>
+    </template>
+  </VueListItems>
+</VueList>
+```
+
+### Custom Sort Controls
+
+You can build custom sort UI using the list's scoped slot:
+
+```vue
+<template>
+  <VueList 
+    endpoint="products"
+    v-slot="{ context }"
+    ref="listRef"
+  >
+    <div class="sort-controls">
+      <select @change="handleSortChange($event.target.value)">
+        <option value="name-asc">Name (A-Z)</option>
+        <option value="name-desc">Name (Z-A)</option>
+        <option value="price-asc">Price (Low to High)</option>
+        <option value="price-desc">Price (High to Low)</option>
+        <option value="created_at-desc">Newest First</option>
+      </select>
+    </div>
+    
+    <VueListItems>
+      <template #item="{ item }">
+        <div class="product">
+          <h3>{{ item.name }}</h3>
+          <p>${{ item.price }}</p>
+        </div>
+      </template>
+    </VueListItems>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref(null)
+
+function handleSortChange(value) {
+  const [by, order] = value.split('-')
+  listRef.value.setSort({ by, order })
+}
+</script>
+```
+
+### Sortable Table Headers
+
+Here's a complete example of sortable table headers:
+
+```vue
+<template>
+  <VueList 
+    endpoint="users"
+    sort-by="name"
+    sort-order="asc"
+    ref="listRef"
+  >
+    <template #default="{ context }">
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <button 
+                @click="sort('name')"
+                class="sort-header"
+              >
+                Name
+                <span v-if="context.sortBy === 'name'">
+                  {{ context.sortOrder === 'asc' ? '↑' : '↓' }}
+                </span>
+              </button>
+            </th>
+            <th>
+              <button 
+                @click="sort('email')"
+                class="sort-header"
+              >
+                Email
+                <span v-if="context.sortBy === 'email'">
+                  {{ context.sortOrder === 'asc' ? '↑' : '↓' }}
+                </span>
+              </button>
+            </th>
+            <th>
+              <button 
+                @click="sort('created_at')"
+                class="sort-header"
+              >
+                Created
+                <span v-if="context.sortBy === 'created_at'">
+                  {{ context.sortOrder === 'asc' ? '↑' : '↓' }}
+                </span>
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <VueListItems>
+            <template #item="{ item }">
+              <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.email }}</td>
+                <td>{{ formatDate(item.created_at) }}</td>
+              </tr>
+            </template>
+          </VueListItems>
+        </tbody>
+      </table>
+      
+      <VueListPagination />
+    </template>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref(null)
+
+function sort(by) {
+  const currentSort = listRef.value?.context?.sortBy
+  const currentOrder = listRef.value?.context?.sortOrder
+  
+  // Toggle order if clicking same column, otherwise default to asc
+  const order = currentSort === by && currentOrder === 'asc' ? 'desc' : 'asc'
+  
+  listRef.value.setSort({ by, order })
+}
+
+function formatDate(date) {
+  return new Date(date).toLocaleDateString()
+}
+</script>
+
+<style scoped>
+.sort-header {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-header:hover {
+  text-decoration: underline;
+}
+</style>
+```
+
+### Handling Sort in requestHandler
+
+```js main.js
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, sortBy, sortOrder, page, perPage } = context
+    
+    return axios.get(`/api/${endpoint}`, {
+      params: {
+        page,
+        limit: perPage,
+        sort_by: sortBy,      // e.g., "price"
+        sort_order: sortOrder // "asc" or "desc"
+      }
+    })
+    .then(({ data }) => ({
+      items: data.results,
+      count: data.total
+    }))
+  }
+})
+```
+
+## Filtering
+
+Filters are passed as an object using `v-model:filters` on the `<VueList>` component.
+
+### Basic Filtering
+
+<Steps>
+  <Step title="Create a reactive filters object">
+    ```vue
+    <script setup>
+    import { ref } from 'vue'
+    
+    const filters = ref({
+      category: null,
+      status: 'active',
+      minPrice: null,
+      maxPrice: null
+    })
+    </script>
+    ```
+  </Step>
+
+  <Step title="Bind filters to VueList">
+    ```vue
+    <VueList 
+      endpoint="products"
+      v-model:filters="filters"
+    >
+      <!-- ... -->
+    </VueList>
+    ```
+  </Step>
+
+  <Step title="Create filter UI">
+    ```vue
+    <template>
+      <div class="filters">
+        <select v-model="filters.category">
+          <option :value="null">All Categories</option>
+          <option value="electronics">Electronics</option>
+          <option value="clothing">Clothing</option>
+          <option value="books">Books</option>
+        </select>
+        
+        <select v-model="filters.status">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+    </template>
+    ```
+  </Step>
+</Steps>
+
+### Complete Filtering Example
+
+```vue
+<template>
+  <div class="products-page">
+    <VueList 
+      endpoint="products"
+      v-model:filters="filters"
+      :per-page="24"
+    >
+      <!-- Filter Controls -->
+      <div class="filters-panel">
+        <div class="filter-group">
+          <label>Category</label>
+          <select v-model="filters.category">
+            <option :value="null">All Categories</option>
+            <option value="electronics">Electronics</option>
+            <option value="clothing">Clothing</option>
+            <option value="home">Home & Garden</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label>Price Range</label>
+          <input 
+            v-model.number="filters.minPrice" 
+            type="number" 
+            placeholder="Min"
+          />
+          <input 
+            v-model.number="filters.maxPrice" 
+            type="number" 
+            placeholder="Max"
+          />
+        </div>
+        
+        <div class="filter-group">
+          <label>In Stock Only</label>
+          <input v-model="filters.inStock" type="checkbox" />
+        </div>
+        
+        <button @click="resetFilters" class="reset-btn">
+          Reset Filters
+        </button>
+      </div>
+      
+      <!-- Search -->
+      <VueListSearch placeholder="Search products..." />
+      
+      <!-- Results -->
+      <VueListItems>
+        <template #item="{ item }">
+          <div class="product-card">
+            <img :src="item.image" :alt="item.name" />
+            <h3>{{ item.name }}</h3>
+            <p class="category">{{ item.category }}</p>
+            <p class="price">${{ item.price }}</p>
+            <span v-if="!item.inStock" class="out-of-stock">
+              Out of Stock
+            </span>
+          </div>
+        </template>
+      </VueListItems>
+      
+      <VueListEmpty>
+        <p>No products match your filters</p>
+      </VueListEmpty>
+      
+      <VueListPagination />
+    </VueList>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const filters = ref({
+  category: null,
+  minPrice: null,
+  maxPrice: null,
+  inStock: false
+})
+
+function resetFilters() {
+  filters.value = {
+    category: null,
+    minPrice: null,
+    maxPrice: null,
+    inStock: false
+  }
+}
+</script>
+```
+
+### How Filtering Works
+
+1. When any property in the `filters` object changes, VueList automatically:
+   - Resets to page 1
+   - Calls your `requestHandler` with the updated `filters` object
+
+2. Your `requestHandler` receives the filters and passes them to your API:
+
+```js main.js
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, filters } = context
+    
+    // Build query params from filters
+    const params = {
+      page,
+      limit: perPage
+    }
+    
+    // Add filters to params
+    if (filters.category) {
+      params.category = filters.category
+    }
+    if (filters.minPrice) {
+      params.min_price = filters.minPrice
+    }
+    if (filters.maxPrice) {
+      params.max_price = filters.maxPrice
+    }
+    if (filters.inStock) {
+      params.in_stock = 1
+    }
+    
+    return axios.get(`/api/${endpoint}`, { params })
+      .then(({ data }) => ({
+        items: data.results,
+        count: data.total
+      }))
+  }
+})
+```
+
+<Note>
+  VueList watches the `filters` object reactively. Any change to any property will trigger a refetch. Make sure to skip the initial fetch if needed using the `initializingState` check (VueList handles this internally).
+</Note>
+
+## Combining Search, Sort, and Filters
+
+You can use all three together seamlessly:
+
+```vue
+<template>
+  <VueList 
+    endpoint="products"
+    v-model:filters="filters"
+    sort-by="price"
+    sort-order="asc"
+    ref="listRef"
+  >
+    <template #default="{ context }">
+      <div class="controls">
+        <!-- Search -->
+        <VueListSearch placeholder="Search..." />
+        
+        <!-- Filters -->
+        <select v-model="filters.category">
+          <option :value="null">All</option>
+          <option value="electronics">Electronics</option>
+          <option value="books">Books</option>
+        </select>
+        
+        <!-- Sort -->
+        <select @change="handleSort($event.target.value)">
+          <option value="name-asc">Name A-Z</option>
+          <option value="price-asc">Price Low-High</option>
+          <option value="price-desc">Price High-Low</option>
+        </select>
+      </div>
+      
+      <VueListSummary v-slot="{ from, to, count }">
+        Showing {{ from }}-{{ to }} of {{ count }} results
+      </VueListSummary>
+      
+      <VueListItems>
+        <template #item="{ item }">
+          <div>{{ item.name }} - ${{ item.price }}</div>
+        </template>
+      </VueListItems>
+      
+      <VueListPagination />
+    </template>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const filters = ref({
+  category: null
+})
+
+const listRef = ref(null)
+
+function handleSort(value) {
+  const [by, order] = value.split('-')
+  listRef.value.setSort({ by, order })
+}
+</script>
+```
+
+Your `requestHandler` will receive all parameters:
+
+```js
+requestHandler(context) {
+  // context contains:
+  // - search: "laptop"
+  // - sortBy: "price"
+  // - sortOrder: "asc"
+  // - filters: { category: "electronics" }
+  // - page: 1
+  // - perPage: 25
+  
+  // Pass everything to your API
+}
+```
+
+<Tip>
+  Whenever search, filters, or sort change, VueList automatically resets to page 1. This ensures users always see the first page of the new result set.
+</Tip>

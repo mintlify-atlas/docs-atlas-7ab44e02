@@ -1,0 +1,373 @@
+---
+title: VueListEmpty
+description: Display a message when no items are found
+---
+
+The `<VueListEmpty>` component automatically displays when the list has no items. It only shows when loading is complete, there's no error, and the items array is empty.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+    
+    <VueListEmpty>
+      <p>No users found</p>
+    </VueListEmpty>
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Behavior
+
+- **Shows when**: `items.length === 0` AND `isLoading === false` AND `error === false`
+- **Hidden when**: Items exist, loading, or there's an error
+- **Common scenarios**: No search results, empty category, no data in database
+
+## Slot
+
+The default slot renders your custom empty state UI:
+
+```vue
+<VueListEmpty>
+  <div class="empty-state">
+    <svg class="empty-icon">
+      <!-- icon -->
+    </svg>
+    <h3>No results found</h3>
+    <p>Try adjusting your filters or search query</p>
+  </div>
+</VueListEmpty>
+```
+
+## Examples
+
+### Simple message
+
+```vue
+<VueListEmpty>
+  <div class="text-center py-12 text-gray-500">
+    <p>No items found</p>
+  </div>
+</VueListEmpty>
+```
+
+### With icon
+
+```vue
+<VueListEmpty>
+  <div class="text-center py-16">
+    <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor">
+      <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+    </svg>
+    <h3 class="text-lg font-medium text-gray-900">No products found</h3>
+    <p class="text-gray-500 mt-2">We couldn't find any products matching your criteria</p>
+  </div>
+</VueListEmpty>
+```
+
+### With action button
+
+```vue
+<VueList endpoint="products" v-model:filters="filters">
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+  
+  <VueListEmpty>
+    <div class="empty-state">
+      <svg class="w-20 h-20 text-gray-300 mx-auto mb-4" fill="currentColor">
+        <path d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" />
+      </svg>
+      <h3 class="text-xl font-semibold text-gray-900 mb-2">No products found</h3>
+      <p class="text-gray-600 mb-6">Try adjusting your filters or browse all products</p>
+      <button @click="filters = {}" class="btn-primary">
+        Clear Filters
+      </button>
+    </div>
+  </VueListEmpty>
+</VueList>
+
+<script setup>
+import { ref } from 'vue'
+const filters = ref({ category: 'electronics' })
+</script>
+```
+
+### Search-specific empty state
+
+```vue
+<VueList endpoint="users" #default="{ context }">
+  <VueListSearch />
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+  
+  <VueListEmpty>
+    <div class="text-center py-16">
+      <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor">
+        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      
+      <template v-if="context.search">
+        <h3 class="text-lg font-medium text-gray-900">
+          No results for "{{ context.search }}"
+        </h3>
+        <p class="text-gray-500 mt-2">Try searching with different keywords</p>
+      </template>
+      
+      <template v-else>
+        <h3 class="text-lg font-medium text-gray-900">No users yet</h3>
+        <p class="text-gray-500 mt-2">Get started by adding your first user</p>
+      </template>
+    </div>
+  </VueListEmpty>
+</VueList>
+```
+
+### Illustration style
+
+```vue
+<VueListEmpty>
+  <div class="max-w-sm mx-auto text-center py-16">
+    <img
+      src="/empty-box.svg"
+      alt="Empty"
+      class="w-48 h-48 mx-auto mb-6 opacity-50"
+    />
+    <h3 class="text-xl font-bold text-gray-900 mb-2">
+      Your cart is empty
+    </h3>
+    <p class="text-gray-600 mb-6">
+      Looks like you haven't added any items yet. Start shopping to fill it up!
+    </p>
+    <a href="/shop" class="btn-primary">
+      Start Shopping
+    </a>
+  </div>
+</VueListEmpty>
+```
+
+### Compact inline
+
+```vue
+<VueListEmpty>
+  <div class="bg-gray-50 rounded-lg p-4 text-center">
+    <p class="text-sm text-gray-600">📦 No items to display</p>
+  </div>
+</VueListEmpty>
+```
+
+### Create new item CTA
+
+```vue
+<VueList endpoint="projects">
+  <VueListItems #default="{ items }">
+    <div class="project-grid">
+      <div v-for="project in items" :key="project.id">
+        {{ project.name }}
+      </div>
+    </div>
+  </VueListItems>
+  
+  <VueListEmpty>
+    <div class="empty-state-card">
+      <div class="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4">
+        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor">
+          <path d="M12 4v16m8-8H4" />
+        </svg>
+      </div>
+      
+      <h3 class="text-xl font-bold text-gray-900 mb-2">
+        No projects yet
+      </h3>
+      
+      <p class="text-gray-600 mb-6">
+        Create your first project to get started
+      </p>
+      
+      <button @click="openCreateDialog" class="btn-primary">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor">
+          <path d="M12 4v16m8-8H4" />
+        </svg>
+        Create Project
+      </button>
+    </div>
+  </VueListEmpty>
+</VueList>
+```
+
+### Table empty state
+
+```vue
+<table class="w-full">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <VueListItems>
+      <template #item="{ item }">
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.email }}</td>
+          <td>{{ item.status }}</td>
+        </tr>
+      </template>
+    </VueListItems>
+  </tbody>
+</table>
+
+<VueListEmpty>
+  <div class="text-center py-8 text-gray-500">
+    <p>No records found</p>
+  </div>
+</VueListEmpty>
+```
+
+### Dynamic empty state based on filters
+
+```vue
+<VueList endpoint="orders" v-model:filters="filters" #default="{ context }">
+  <div class="filters">
+    <select v-model="filters.status">
+      <option value="">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="completed">Completed</option>
+    </select>
+  </div>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+  
+  <VueListEmpty>
+    <div class="empty-state">
+      <template v-if="filters.status">
+        <h3>No {{ filters.status }} orders</h3>
+        <p>There are no orders with status "{{ filters.status }}"</p>
+        <button @click="filters.status = ''" class="btn-secondary">
+          View all orders
+        </button>
+      </template>
+      
+      <template v-else>
+        <h3>No orders yet</h3>
+        <p>You don't have any orders</p>
+      </template>
+    </div>
+  </VueListEmpty>
+</VueList>
+
+<script setup>
+import { ref } from 'vue'
+const filters = ref({ status: '' })
+</script>
+```
+
+## Complete example
+
+```vue
+<template>
+  <VueList endpoint="products" v-model:filters="filters" #default="{ context }">
+    <div class="product-list">
+      <div class="toolbar">
+        <VueListSearch :debounce-time="500" />
+        <select v-model="filters.category">
+          <option value="">All categories</option>
+          <option value="electronics">Electronics</option>
+          <option value="clothing">Clothing</option>
+          <option value="books">Books</option>
+        </select>
+      </div>
+
+      <VueListInitialLoader>
+        <div class="skeleton-grid">
+          <div class="skeleton-card" v-for="i in 6" :key="i"></div>
+        </div>
+      </VueListInitialLoader>
+
+      <VueListItems #default="{ items }">
+        <div class="grid grid-cols-3 gap-4">
+          <div v-for="product in items" :key="product.id" class="product-card">
+            <img :src="product.image" :alt="product.name" />
+            <h3>{{ product.name }}</h3>
+            <p>{{ product.price }}</p>
+          </div>
+        </div>
+      </VueListItems>
+
+      <VueListEmpty>
+        <div class="empty-state-container">
+          <svg class="empty-icon" fill="none" stroke="currentColor">
+            <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+          </svg>
+          
+          <template v-if="context.search || filters.category">
+            <h3>No products found</h3>
+            <p>We couldn't find any products matching your criteria</p>
+            <button @click="clearFilters" class="btn-primary">
+              Clear Filters
+            </button>
+          </template>
+          
+          <template v-else>
+            <h3>No products available</h3>
+            <p>Check back soon for new products</p>
+          </template>
+        </div>
+      </VueListEmpty>
+
+      <VueListError #default="{ error }">
+        <div class="error-state">{{ error.message }}</div>
+      </VueListError>
+
+      <VueListPagination :page-links="5" />
+    </div>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const filters = ref({
+  category: ''
+})
+
+function clearFilters() {
+  filters.value = { category: '' }
+}
+</script>
+```
+
+<Tip>
+Provide context-aware empty states that guide users on what to do next, especially when filters or search are active.
+</Tip>
+
+<Note>
+The empty state only shows when there are genuinely no items. It won't show during loading or when there's an error.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Error component" icon="triangle-exclamation" href="/components/error">
+    Handle API errors
+  </Card>
+  <Card title="Search component" icon="magnifying-glass" href="/components/search">
+    Add search functionality
+  </Card>
+</CardGroup>

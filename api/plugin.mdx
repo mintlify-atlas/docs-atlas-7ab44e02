@@ -1,0 +1,129 @@
+---
+title: 'Plugin API'
+description: 'VueList plugin installation and configuration'
+---
+
+## Installation
+
+The VueList plugin must be installed in your Vue 3 application to register all components globally.
+
+```javascript
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  // Plugin options
+})
+
+app.mount('#app')
+```
+
+## Plugin Options
+
+The plugin accepts a configuration object with the following options:
+
+<ParamField path="componentPrefix" type="string" default="''">
+  Prefix to add to all VueList component names. For example, if you set `componentPrefix: 'My'`, components will be registered as `MyVueList`, `MyVueListItems`, etc.
+  
+  ```javascript
+  app.use(VueList, {
+    componentPrefix: 'My'
+  })
+  ```
+</ParamField>
+
+<ParamField path="requestHandler" type="function" required>
+  A global request handler function that fetches data for all VueList instances. This function receives [request data](/api/request-data) and must return a Promise that resolves with an object containing `items` and `count`.
+  
+  ```javascript
+  app.use(VueList, {
+    requestHandler: async (requestData) => {
+      const response = await fetch(`/api${requestData.endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      })
+      
+      const data = await response.json()
+      
+      return {
+        items: data.items,
+        count: data.total
+      }
+    }
+  })
+  ```
+  
+  <Expandable title="Request Handler Response">
+    The request handler must return a Promise that resolves to an object with:
+    
+    - `items` (Array): Array of items to display
+    - `count` (Number): Total count of items (for pagination)
+  </Expandable>
+</ParamField>
+
+<ParamField path="stateManager" type="object">
+  Custom state manager for persisting list state across navigation. Useful for maintaining pagination, search, and filter state.
+  
+  ```javascript
+  app.use(VueList, {
+    stateManager: {
+      init: (context) => {
+        // Initialize or clean up state when list is created
+      },
+      set: (context) => {
+        // Save state when it changes
+        sessionStorage.setItem(
+          `vuelist-${context.endpoint}`,
+          JSON.stringify(context)
+        )
+      },
+      get: (context) => {
+        // Retrieve saved state
+        const saved = sessionStorage.getItem(`vuelist-${context.endpoint}`)
+        return saved ? JSON.parse(saved) : null
+      }
+    }
+  })
+  ```
+  
+  <Expandable title="State Manager Methods">
+    <ParamField path="init" type="function">
+      Called when a VueList component is initialized. Receives the [context object](/api/context-object).
+    </ParamField>
+    
+    <ParamField path="set" type="function">
+      Called when list state changes (page, search, filters, etc.). Receives the [context object](/api/context-object).
+    </ParamField>
+    
+    <ParamField path="get" type="function">
+      Called to retrieve saved state when a list is initialized. Receives the [context object](/api/context-object) and should return the saved state or null.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Registered Components
+
+When the plugin is installed, the following components are registered globally:
+
+- `VueList` - Main list container
+- `VueListItems` - Items renderer
+- `VueListPagination` - Pagination controls
+- `VueListSearch` - Search input
+- `VueListInitialLoader` - Loading indicator during initial load
+- `VueListLoader` - Loading indicator during subsequent loads
+- `VueListError` - Error message display
+- `VueListSummary` - Results summary
+- `VueListPerPage` - Per page selector
+- `VueListLoadMore` - Load more button
+- `VueListGoTo` - Go to page input
+- `VueListRefresh` - Refresh button
+- `VueListAttributes` - Attribute column controls
+- `VueListEmpty` - Empty state display
+
+<Note>
+  All components can be prefixed using the `componentPrefix` option.
+</Note>

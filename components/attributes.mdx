@@ -1,0 +1,329 @@
+---
+title: VueListAttributes
+description: Toggle visibility of table columns or list attributes
+---
+
+The `<VueListAttributes>` component provides UI controls for showing/hiding columns in a table or attributes in a list. It's useful for letting users customize which fields they want to see.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users" :attrs="['name', 'email', 'role', 'created_at']">
+    <VueListAttributes />
+    
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }} - {{ user.email }}
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+<Note>
+**Important**: You must pass the `attrs` prop to the `<VueList>` component to define which attributes are available.
+</Note>
+
+## Slot
+
+The default slot receives a scope object:
+
+```vue
+<VueListAttributes #default="{ attrs, settings, update }">
+  <div class="attribute-controls">
+    <label v-for="attr in attrs" :key="attr.name">
+      <input
+        type="checkbox"
+        :checked="settings?.[attr.name]?.visible"
+        @change="update(attr.name, 'visible', $event.target.checked)"
+      />
+      {{ attr.label }}
+    </label>
+  </div>
+</VueListAttributes>
+```
+
+### Scope object
+
+- `attrs` - Array of attribute objects with `name` and `label`
+- `settings` - Current settings object (e.g., `{ name: { visible: true }, email: { visible: false } }`)
+- `update(name, prop, value)` - Function to update an attribute's settings
+
+## Examples
+
+### Checkbox list
+
+```vue
+<VueListAttributes #default="{ attrs, settings, update }">
+  <div class="space-y-2">
+    <p class="text-sm font-medium text-gray-700">Show columns:</p>
+    <label
+      v-for="attr in attrs"
+      :key="attr.name"
+      class="flex items-center gap-2 cursor-pointer"
+    >
+      <input
+        type="checkbox"
+        :checked="settings?.[attr.name]?.visible"
+        @change="update(attr.name, 'visible', $event.target.checked)"
+        class="rounded"
+      />
+      <span class="text-sm">{{ attr.label }}</span>
+    </label>
+  </div>
+</VueListAttributes>
+```
+
+### Dropdown menu
+
+```vue
+<VueListAttributes #default="{ attrs, settings, update }">
+  <div class="relative">
+    <button @click="showMenu = !showMenu" class="btn-secondary">
+      Columns
+      <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor">
+        <path d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+    
+    <div v-if="showMenu" class="absolute right-0 mt-2 bg-white shadow-lg rounded-lg p-4 z-10">
+      <label
+        v-for="attr in attrs"
+        :key="attr.name"
+        class="flex items-center gap-2 py-1"
+      >
+        <input
+          type="checkbox"
+          :checked="settings?.[attr.name]?.visible"
+          @change="update(attr.name, 'visible', $event.target.checked)"
+        />
+        <span>{{ attr.label }}</span>
+      </label>
+    </div>
+  </div>
+</VueListAttributes>
+
+<script setup>
+import { ref } from 'vue'
+const showMenu = ref(false)
+</script>
+```
+
+### With select all / deselect all
+
+```vue
+<VueListAttributes #default="{ attrs, settings, update }">
+  <div class="column-selector">
+    <div class="flex items-center justify-between mb-3">
+      <p class="font-medium">Columns</p>
+      <div class="flex gap-2">
+        <button @click="selectAll(attrs, update)" class="text-xs text-blue-600">
+          Select All
+        </button>
+        <button @click="deselectAll(attrs, update)" class="text-xs text-gray-600">
+          Clear
+        </button>
+      </div>
+    </div>
+    
+    <div class="space-y-2">
+      <label v-for="attr in attrs" :key="attr.name" class="flex items-center gap-2">
+        <input
+          type="checkbox"
+          :checked="settings?.[attr.name]?.visible"
+          @change="update(attr.name, 'visible', $event.target.checked)"
+        />
+        <span>{{ attr.label }}</span>
+      </label>
+    </div>
+  </div>
+</VueListAttributes>
+
+<script setup>
+function selectAll(attrs, update) {
+  attrs.forEach(attr => update(attr.name, 'visible', true))
+}
+
+function deselectAll(attrs, update) {
+  attrs.forEach(attr => update(attr.name, 'visible', false))
+}
+</script>
+```
+
+### Using with table
+
+```vue
+<template>
+  <VueList endpoint="users" :attrs="columns">
+    <div class="mb-4">
+      <VueListAttributes #default="{ attrs, settings, update }">
+        <div class="flex gap-2">
+          <label v-for="attr in attrs" :key="attr.name" class="inline-flex items-center gap-1">
+            <input
+              type="checkbox"
+              :checked="settings?.[attr.name]?.visible"
+              @change="update(attr.name, 'visible', $event.target.checked)"
+            />
+            <span class="text-sm">{{ attr.label }}</span>
+          </label>
+        </div>
+      </VueListAttributes>
+    </div>
+    
+    <table class="w-full">
+      <thead>
+        <tr>
+          <th v-if="isVisible('name')">Name</th>
+          <th v-if="isVisible('email')">Email</th>
+          <th v-if="isVisible('role')">Role</th>
+          <th v-if="isVisible('created_at')">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        <VueListItems #default="{ items }">
+          <tr v-for="user in items" :key="user.id">
+            <td v-if="isVisible('name')">{{ user.name }}</td>
+            <td v-if="isVisible('email')">{{ user.email }}</td>
+            <td v-if="isVisible('role')">{{ user.role }}</td>
+            <td v-if="isVisible('created_at')">{{ user.created_at }}</td>
+          </tr>
+        </VueListItems>
+      </tbody>
+    </table>
+  </VueList>
+</template>
+
+<script setup>
+import { inject } from 'vue'
+
+const columns = [
+  { name: 'name', label: 'Name' },
+  { name: 'email', label: 'Email' },
+  { name: 'role', label: 'Role' },
+  { name: 'created_at', label: 'Created At' }
+]
+
+const attrSettings = inject('attrSettings')
+
+function isVisible(attrName) {
+  return attrSettings.value?.[attrName]?.visible !== false
+}
+</script>
+```
+
+### Popover style
+
+```vue
+<VueListAttributes #default="{ attrs, settings, update }">
+  <div class="relative">
+    <button
+      @click="showPopover = !showPopover"
+      class="flex items-center gap-2 px-3 py-2 border rounded hover:bg-gray-50"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor">
+        <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+      </svg>
+      <span class="text-sm">Customize Columns</span>
+    </button>
+    
+    <div
+      v-if="showPopover"
+      class="absolute right-0 mt-2 w-64 bg-white border rounded-lg shadow-xl p-4 z-20"
+    >
+      <h3 class="font-medium mb-3">Show/Hide Columns</h3>
+      
+      <div class="space-y-2 max-h-64 overflow-y-auto">
+        <label
+          v-for="attr in attrs"
+          :key="attr.name"
+          class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+        >
+          <input
+            type="checkbox"
+            :checked="settings?.[attr.name]?.visible"
+            @change="update(attr.name, 'visible', $event.target.checked)"
+            class="rounded"
+          />
+          <span class="text-sm">{{ attr.label }}</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</VueListAttributes>
+
+<script setup>
+import { ref } from 'vue'
+const showPopover = ref(false)
+</script>
+```
+
+## Accessing visibility state
+
+You can check if an attribute is visible using the injected `attrSettings`:
+
+```vue
+<script setup>
+import { inject, computed } from 'vue'
+
+const attrSettings = inject('attrSettings')
+
+const isNameVisible = computed(() => {
+  return attrSettings.value?.name?.visible !== false
+})
+</script>
+```
+
+## State persistence
+
+Attribute visibility is automatically persisted via the `stateManager` if configured. When users return, their column preferences are restored.
+
+```js
+app.use(VueList, {
+  requestHandler(context) {
+    // ... your request handler
+  },
+  stateManager: {
+    init(context) {
+      // Initialize state
+    },
+    get(context) {
+      const key = `vuelist-${context.endpoint}-${context.version}`
+      const state = localStorage.getItem(key)
+      return state ? JSON.parse(state) : null
+    },
+    set(context) {
+      const key = `vuelist-${context.endpoint}-${context.version}`
+      const state = {
+        attrSettings: context.attrSettings, // Column visibility saved here
+        page: context.page,
+        perPage: context.perPage
+      }
+      localStorage.setItem(key, JSON.stringify(state))
+    }
+  }
+})
+```
+
+<Tip>
+Use attribute visibility in combination with responsive design to hide less important columns on mobile devices by default.
+</Tip>
+
+<Note>
+The `attrs` prop on `<VueList>` can be an array of strings or objects with `name` and `label` properties.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="VueList props" icon="list" href="/api/components/vue-list-props">
+    Learn about the attrs prop
+  </Card>
+  <Card title="State persistence" icon="floppy-disk" href="/guides/state-persistence">
+    Save attribute preferences
+  </Card>
+</CardGroup>

@@ -1,0 +1,256 @@
+---
+title: VueListPerPage
+description: Dropdown to control how many items are shown per page
+---
+
+The `<VueListPerPage>` component renders a dropdown that lets users control how many items they want to see per page. Changing this value automatically refetches data and resets to page 1.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListPerPage />
+    
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+## Props
+
+<ParamField path="options" type="array" default="[10, 25, 50, 100]">
+  Array of options for the per-page selector. Can be numbers or objects with `label` and `value` keys.
+  
+  ```vue
+  <VueListPerPage :options="[20, 50, 100, 200]" />
+  ```
+  
+  Or with custom labels:
+  ```vue
+  <VueListPerPage 
+    :options="[
+      { label: 'Small (10)', value: 10 },
+      { label: 'Medium (25)', value: 25 },
+      { label: 'Large (50)', value: 50 },
+      { label: 'Extra Large (100)', value: 100 }
+    ]"
+  />
+  ```
+</ParamField>
+
+## Slot
+
+The default slot receives a scope object:
+
+```vue
+<VueListPerPage :options="[10, 25, 50]">
+  <template #default="{ perPage, options, setPerPage }">
+    <select :value="perPage" @change="setPerPage(Number($event.target.value))">
+      <option v-for="option in options" :key="option.value" :value="option.value">
+        {{ option.label }}
+      </option>
+    </select>
+  </template>
+</VueListPerPage>
+```
+
+### Scope object
+
+- `perPage` - Current per-page value
+- `options` - Serialized options array with `label` and `value` for each option
+- `setPerPage(value)` - Function to change per-page setting
+
+## Behavior
+
+- **Resets to page 1**: When per-page changes, the list automatically goes back to the first page
+- **Triggers data fetch**: Changing per-page refetches data with the new limit
+- **Persisted via stateManager**: If configured, the selected value is saved and restored
+
+## Examples
+
+### Styled dropdown
+
+```vue
+<VueListPerPage :options="[10, 25, 50, 100]">
+  <template #default="{ perPage, options, setPerPage }">
+    <div class="per-page-selector">
+      <label class="text-sm text-gray-600">Show:</label>
+      <select
+        :value="perPage"
+        @change="setPerPage(Number($event.target.value))"
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+      >
+        <option v-for="opt in options" :key="opt.value" :value="opt.value">
+          {{ opt.label }} per page
+        </option>
+      </select>
+    </div>
+  </template>
+</VueListPerPage>
+```
+
+### Custom labels
+
+```vue
+<VueListPerPage 
+  :options="[
+    { label: '10 items', value: 10 },
+    { label: '25 items', value: 25 },
+    { label: '50 items', value: 50 },
+    { label: '100 items', value: 100 },
+    { label: 'All', value: 1000 }
+  ]"
+/>
+```
+
+### Radio buttons instead of dropdown
+
+```vue
+<VueListPerPage :options="[10, 25, 50, 100]">
+  <template #default="{ perPage, options, setPerPage }">
+    <div class="flex gap-2">
+      <label
+        v-for="opt in options"
+        :key="opt.value"
+        class="cursor-pointer"
+      >
+        <input
+          type="radio"
+          :checked="perPage === opt.value"
+          @change="setPerPage(opt.value)"
+          class="mr-1"
+        />
+        {{ opt.label }}
+      </label>
+    </div>
+  </template>
+</VueListPerPage>
+```
+
+### With label and summary
+
+```vue
+<VueList endpoint="products" #default="{ count }">
+  <div class="flex items-center gap-4">
+    <VueListPerPage :options="[12, 24, 48]">
+      <template #default="{ perPage, options, setPerPage }">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium">Items per page:</span>
+          <select
+            :value="perPage"
+            @change="setPerPage(Number($event.target.value))"
+            class="border rounded px-2 py-1"
+          >
+            <option v-for="opt in options" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+      </template>
+    </VueListPerPage>
+    
+    <span class="text-sm text-gray-600">{{ count }} total items</span>
+  </div>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Button group selector
+
+```vue
+<VueListPerPage :options="[10, 25, 50]">
+  <template #default="{ perPage, options, setPerPage }">
+    <div class="btn-group" role="group">
+      <button
+        v-for="opt in options"
+        :key="opt.value"
+        @click="setPerPage(opt.value)"
+        :class="[
+          'px-4 py-2 border',
+          perPage === opt.value
+            ? 'bg-blue-500 text-white'
+            : 'bg-white text-gray-700 hover:bg-gray-50'
+        ]"
+      >
+        {{ opt.label }}
+      </button>
+    </div>
+  </template>
+</VueListPerPage>
+```
+
+### Compact with icon
+
+```vue
+<VueListPerPage :options="[20, 50, 100]">
+  <template #default="{ perPage, options, setPerPage }">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+      <select
+        :value="perPage"
+        @change="setPerPage(Number($event.target.value))"
+        class="text-sm border-gray-300 rounded"
+      >
+        <option v-for="opt in options" :key="opt.value" :value="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
+  </template>
+</VueListPerPage>
+```
+
+## Handling in requestHandler
+
+The per-page value is passed to your request handler as `context.perPage`:
+
+```js
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage } = context
+    
+    return axios.get(`/api/${endpoint}`, {
+      params: {
+        page,
+        limit: perPage, // Use perPage for your API's limit param
+      }
+    })
+    .then(({ data }) => ({
+      items: data.results,
+      count: data.total
+    }))
+  }
+})
+```
+
+<Tip>
+Provide per-page options that make sense for your data:
+- **Small datasets**: [10, 25, 50]
+- **Medium datasets**: [25, 50, 100]
+- **Large datasets**: [50, 100, 200, 500]
+</Tip>
+
+<Note>
+Changing per-page automatically resets to page 1 and triggers a new data fetch.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Summary" icon="chart-simple" href="/components/summary">
+    Display item count summary
+  </Card>
+  <Card title="State persistence" icon="floppy-disk" href="/guides/state-persistence">
+    Save per-page preference across sessions
+  </Card>
+</CardGroup>

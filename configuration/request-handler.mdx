@@ -1,0 +1,331 @@
+---
+title: Request Handler
+description: The core function that fetches data for your lists
+---
+
+## Overview
+
+The `requestHandler` is the heart of VueList. It's an async function that VueList calls whenever the list state changes - whether that's pagination, filtering, sorting, or searching.
+
+You define it once during plugin installation, and VueList handles calling it with the right parameters at the right time.
+
+<Note>
+  The `requestHandler` is called automatically by VueList. You never call it directly in your components.
+</Note>
+
+## Function Signature
+
+<ParamField path="requestHandler" type="function" required>
+  An async function that receives a context object and returns a Promise resolving to `{ items, count }`
+</ParamField>
+
+```js
+app.use(VueList, {
+  requestHandler(context) {
+    // context contains: endpoint, page, perPage, search, sortBy, sortOrder, filters, meta, etc.
+    // Return a Promise that resolves to { items: Array, count: Number }
+  }
+})
+```
+
+## The Context Parameter
+
+The `requestHandler` receives a single parameter: the **context object**. This object contains everything you need to build your API request:
+
+<ParamField path="context.endpoint" type="string">
+  The API endpoint or identifier passed to `<VueList endpoint="..." />`
+</ParamField>
+
+<ParamField path="context.page" type="number">
+  Current page number (1-indexed)
+</ParamField>
+
+<ParamField path="context.perPage" type="number">
+  Number of items per page
+</ParamField>
+
+<ParamField path="context.search" type="string">
+  Current search query from `<VueListSearch>`
+</ParamField>
+
+<ParamField path="context.sortBy" type="string">
+  Column/field to sort by
+</ParamField>
+
+<ParamField path="context.sortOrder" type="'asc' | 'desc'">
+  Sort direction
+</ParamField>
+
+<ParamField path="context.filters" type="object">
+  User-applied filters (dynamic object)
+</ParamField>
+
+<ParamField path="context.meta" type="any">
+  Additional metadata passed via the `meta` prop on `<VueList>`
+</ParamField>
+
+<ParamField path="context.version" type="string | number">
+  Version number for state management
+</ParamField>
+
+<ParamField path="context.attrSettings" type="object">
+  Column visibility and settings
+</ParamField>
+
+<ParamField path="context.isRefresh" type="boolean">
+  `true` when triggered from refresh button/method (useful for cache busting)
+</ParamField>
+
+## Return Value
+
+The `requestHandler` must return a Promise that resolves to an object with two properties:
+
+<ParamField path="items" type="array" required>
+  The array of data items for the current page
+</ParamField>
+
+<ParamField path="count" type="number" required>
+  Total number of items (used for pagination)
+</ParamField>
+
+```js
+{
+  items: [...],  // Array of items for this page
+  count: 150     // Total number of items across all pages
+}
+```
+
+## Examples
+
+### Basic Example with Axios
+
+```js main.js
+import axios from 'axios'
+
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, search, sortBy, sortOrder, filters } = context
+    
+    return axios
+      .get(`/api/${endpoint}`, {
+        params: {
+          page,
+          limit: perPage,
+          search,
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          ...filters
+        }
+      })
+      .then(({ data }) => ({
+        items: data.results,
+        count: data.total
+      }))
+  }
+})
+```
+
+### Advanced Example with ofetch
+
+This example from the VueList playground shows a real-world implementation:
+
+```js vue-list.js
+import { ofetch } from 'ofetch'
+
+export default {
+  async requestHandler(context) {
+    const { endpoint, search, filters, perPage, page, sortBy, sortOrder } = context
+
+    // Build sort parameter
+    let sort
+    if (sortBy && sortOrder) {
+      sort = (sortOrder === 'asc' ? '-' : '') + sortBy
+    }
+
+    // Make parallel requests for count and data
+    const requests = [
+      // Get total count
+      ofetch(`https://api.example.com/items/${endpoint}?aggregate[countDistinct]=id`)
+        .then(({ data }) => data[0].countDistinct.id),
+
+      // Get paginated data
+      ofetch(`https://api.example.com/items/${endpoint}`, {
+        params: {
+          page,
+          limit: perPage,
+          search,
+          sort
+        }
+      }).then(({ data }) => data)
+    ]
+
+    return Promise.all(requests)
+      .then(([count, items]) => ({ items, count }))
+      .catch((error) => {
+        console.error({ error })
+        const err = new Error('Failed to fetch data')
+        err.name = 'NetworkError'
+        throw err
+      })
+  }
+}
+```
+
+### Using meta for Additional Context
+
+```vue UsersList.vue
+<template>
+  <VueList 
+    endpoint="users" 
+    :meta="{ organizationId: currentOrg.id }"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+```
+
+```js main.js
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, meta } = context
+    
+    // Access meta data
+    const orgId = meta?.organizationId
+    
+    return fetch(`/api/orgs/${orgId}/${endpoint}?page=${page}&limit=${perPage}`)
+      .then(res => res.json())
+  }
+})
+```
+
+### Handling the isRefresh Flag
+
+```js main.js
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, isRefresh } = context
+    
+    return fetch(`/api/${endpoint}`, {
+      params: { page, limit: perPage },
+      // Skip cache on refresh
+      cache: isRefresh ? 'no-cache' : 'default'
+    })
+      .then(res => res.json())
+      .then(data => ({
+        items: data.items,
+        count: data.total
+      }))
+  }
+})
+```
+
+## Error Handling
+
+If the `requestHandler` Promise is rejected, VueList will:
+
+1. Set the error state to the thrown error
+2. Make the error available via `<VueListError>` component
+3. Stop showing loading states
+
+<Warning>
+  If you catch errors in the `requestHandler`, you **must** re-throw them. Otherwise, VueList won't know an error occurred.
+</Warning>
+
+```js
+// ❌ Bad - VueList won't detect the error
+requestHandler(context) {
+  return axios.get('...')
+    .catch(error => {
+      console.error(error)
+      // Error swallowed - VueList thinks request succeeded
+    })
+}
+
+// ✅ Good - Error is re-thrown
+requestHandler(context) {
+  return axios.get('...')
+    .catch(error => {
+      console.error(error)
+      const err = new Error('Failed to fetch data')
+      err.name = 'NetworkError'
+      throw err  // Re-throw so VueList can handle it
+    })
+}
+```
+
+## Per-Component Override
+
+You can override the global `requestHandler` for individual lists:
+
+```vue SpecialList.vue
+<template>
+  <VueList 
+    endpoint="special-data" 
+    :request-handler="customHandler"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+
+<script setup>
+const customHandler = async (context) => {
+  // Custom implementation for this list only
+  const data = await fetch(`/api/special/${context.endpoint}`).then(r => r.json())
+  return {
+    items: data.items,
+    count: data.count
+  }
+}
+</script>
+```
+
+<Note>
+  When a component defines its own `requestHandler` prop, it takes precedence over the global handler.
+</Note>
+
+## Default Implementation
+
+If you don't provide a `requestHandler`, VueList uses this default:
+
+```js options.js
+requestHandler() {
+  return new Promise((resolve) => {
+    resolve({
+      items: [],
+      count: 0
+    })
+  })
+}
+```
+
+This returns empty results and is mainly useful for testing or prototyping.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep it flexible">
+    Use the `endpoint` parameter to dynamically build URLs rather than hardcoding them. This makes your `requestHandler` reusable across all lists.
+  </Accordion>
+  
+  <Accordion title="Handle all context properties">
+    Even if you don't use all parameters now, consider future needs. Destructure what you need but keep the handler flexible.
+  </Accordion>
+  
+  <Accordion title="Use proper error objects">
+    Create meaningful error objects with `name` and `message` properties. This helps with debugging and displaying user-friendly error messages.
+  </Accordion>
+  
+  <Accordion title="Consider parallel requests">
+    For APIs that require separate calls for count and data, use `Promise.all()` to fetch them in parallel for better performance.
+  </Accordion>
+  
+  <Accordion title="Leverage the meta prop">
+    Use `meta` for additional context that doesn't fit standard list parameters (like tenant IDs, special flags, etc.).
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+- [Context Object Reference](/configuration/context-object) - Complete documentation of all context properties
+- [State Manager](/configuration/state-manager) - Persist list state across sessions
+- [VueListError Component](/components/error) - Display errors from failed requests

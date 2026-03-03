@@ -1,0 +1,404 @@
+---
+title: Pagination Modes
+description: Learn how to configure different pagination modes in VueList
+---
+
+## Overview
+
+VueList supports two pagination modes:
+
+1. **Pagination** - Traditional page-based navigation with page numbers
+2. **Load More** - Infinite scroll pattern with a "Load More" button
+
+You can switch between modes using the `pagination-mode` prop on the `<VueList>` component.
+
+## Pagination Mode
+
+The default mode displays traditional pagination with page numbers, first/last buttons, and prev/next navigation.
+
+### Basic Usage
+
+```vue
+<template>
+  <VueList 
+    endpoint="articles" 
+    :per-page="10"
+    pagination-mode="pagination"
+  >
+    <VueListItems>
+      <template #item="{ item }">
+        <article>
+          <h2>{{ item.title }}</h2>
+          <p>{{ item.excerpt }}</p>
+        </article>
+      </template>
+    </VueListItems>
+    
+    <VueListPagination />
+  </VueList>
+</template>
+```
+
+### Customizing Pagination UI
+
+The `<VueListPagination>` component provides several slots for customization:
+
+<Tabs>
+  <Tab title="Default">
+    ```vue
+    <VueListPagination />
+    ```
+    Renders basic First, Prev, page numbers, Next, Last buttons.
+  </Tab>
+
+  <Tab title="Custom Buttons">
+    ```vue
+    <VueListPagination v-slot="{ prev, next, hasNext, hasPrev, page }">
+      <div class="pagination">
+        <button 
+          @click="prev" 
+          :disabled="!hasPrev"
+          class="btn btn-prev"
+        >
+          ← Previous
+        </button>
+        
+        <span class="current-page">Page {{ page }}</span>
+        
+        <button 
+          @click="next" 
+          :disabled="!hasNext"
+          class="btn btn-next"
+        >
+          Next →
+        </button>
+      </div>
+    </VueListPagination>
+    ```
+  </Tab>
+
+  <Tab title="Individual Slots">
+    ```vue
+    <VueListPagination>
+      <template #first="{ first, hasPrev }">
+        <button @click="first" :disabled="!hasPrev" class="btn-first">
+          « First
+        </button>
+      </template>
+      
+      <template #prev="{ prev, hasPrev }">
+        <button @click="prev" :disabled="!hasPrev" class="btn-prev">
+          ‹ Prev
+        </button>
+      </template>
+      
+      <template #page="{ page, isActive, setPage }">
+        <button 
+          v-if="!isActive" 
+          @click="setPage(page)"
+          class="page-btn"
+        >
+          {{ page }}
+        </button>
+        <span v-else class="page-btn active">{{ page }}</span>
+      </template>
+      
+      <template #next="{ next, hasNext }">
+        <button @click="next" :disabled="!hasNext" class="btn-next">
+          Next ›
+        </button>
+      </template>
+      
+      <template #last="{ last, hasNext }">
+        <button @click="last" :disabled="!hasNext" class="btn-last">
+          Last »
+        </button>
+      </template>
+    </VueListPagination>
+    ```
+  </Tab>
+</Tabs>
+
+### Pagination Props
+
+The `<VueListPagination>` component accepts:
+
+- `page-links` (Number, default: 5) - Number of page number buttons to display
+
+```vue
+<VueListPagination :page-links="7" />
+```
+
+### Pagination Slot Props
+
+When using the default slot, you have access to:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `page` | Number | Current page number |
+| `perPage` | Number | Items per page |
+| `count` | Number | Total number of items |
+| `pagesCount` | Number | Total number of pages |
+| `pagesToDisplay` | Array | Array of page numbers to show |
+| `hasNext` | Boolean | Whether there's a next page |
+| `hasPrev` | Boolean | Whether there's a previous page |
+| `prev()` | Function | Go to previous page |
+| `next()` | Function | Go to next page |
+| `first()` | Function | Go to first page |
+| `last()` | Function | Go to last page |
+| `setPage(n)` | Function | Go to specific page |
+
+## Load More Mode
+
+The "Load More" mode appends new items to the existing list instead of replacing them. Perfect for infinite scroll patterns.
+
+### Basic Usage
+
+```vue
+<template>
+  <VueList 
+    endpoint="posts" 
+    :per-page="20"
+    pagination-mode="loadMore"
+  >
+    <VueListItems>
+      <template #item="{ item }">
+        <div class="post">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.body }}</p>
+        </div>
+      </template>
+    </VueListItems>
+    
+    <VueListLoadMore />
+  </VueList>
+</template>
+```
+
+<Note>
+  In `loadMore` mode, the page always resets to 1 when filters or search change. Each "Load More" click increments the internal page counter and appends items to the list.
+</Note>
+
+### Customizing Load More Button
+
+You can customize the button and end-of-list message:
+
+```vue
+<VueListLoadMore v-slot="{ loadMore, hasMoreItems, isLoading }">
+  <div class="load-more-container">
+    <button 
+      v-if="hasMoreItems" 
+      @click="loadMore"
+      :disabled="isLoading"
+      class="load-more-btn"
+    >
+      <span v-if="isLoading">Loading...</span>
+      <span v-else>Load More Posts</span>
+    </button>
+    
+    <p v-else class="end-message">
+      You've reached the end!
+    </p>
+  </div>
+</VueListLoadMore>
+```
+
+### Load More Slot Props
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `isLoading` | Boolean | Whether data is currently being fetched |
+| `hasMoreItems` | Boolean | Whether more items are available |
+| `loadMore()` | Function | Fetch and append next page of items |
+
+## Infinite Scroll Implementation
+
+You can implement true infinite scroll by triggering `loadMore()` when the user scrolls near the bottom:
+
+```vue
+<template>
+  <VueList 
+    endpoint="feed" 
+    :per-page="30"
+    pagination-mode="loadMore"
+  >
+    <div ref="scrollContainer" @scroll="handleScroll" class="feed-container">
+      <VueListItems>
+        <template #item="{ item }">
+          <div class="feed-item">
+            {{ item.content }}
+          </div>
+        </template>
+      </VueListItems>
+      
+      <VueListLoadMore v-slot="{ loadMore, hasMoreItems, isLoading }">
+        <div ref="loadMoreTrigger">
+          <div v-if="hasMoreItems && isLoading" class="loading">
+            Loading more items...
+          </div>
+          <div v-else-if="!hasMoreItems" class="end">
+            No more items
+          </div>
+        </div>
+      </VueListLoadMore>
+    </div>
+  </VueList>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const scrollContainer = ref(null)
+const loadMoreTrigger = ref(null)
+let observer = null
+
+onMounted(() => {
+  // Use Intersection Observer for better performance
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // Trigger load more when trigger element is visible
+          const loadMoreBtn = entry.target.querySelector('button')
+          if (loadMoreBtn) loadMoreBtn.click()
+        }
+      })
+    },
+    {
+      root: scrollContainer.value,
+      threshold: 0.1
+    }
+  )
+  
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value)
+  }
+})
+
+onUnmounted(() => {
+  if (observer) observer.disconnect()
+})
+</script>
+```
+
+## URL History
+
+By default, VueList adds the current page number to the URL query params (e.g., `?page=3`). This is useful for:
+- Sharing links to specific pages
+- Browser back/forward navigation
+- Bookmarking
+
+### Disable URL History
+
+You can disable this behavior:
+
+```vue
+<VueList 
+  endpoint="products"
+  pagination-mode="pagination"
+  :has-pagination-history="false"
+>
+  <!-- ... -->
+</VueList>
+```
+
+<Warning>
+  URL history is automatically disabled in `loadMore` mode since it doesn't make sense to bookmark a partially loaded infinite list.
+</Warning>
+
+## Events
+
+VueList emits events when pagination changes:
+
+```vue
+<template>
+  <VueList 
+    endpoint="products"
+    pagination-mode="pagination"
+    @after-page-change="onPageChange"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+
+<script setup>
+function onPageChange(response) {
+  console.log('Page changed, got', response.items.length, 'items')
+  console.log('Total count:', response.count)
+}
+</script>
+```
+
+For load more mode:
+
+```vue
+<template>
+  <VueList 
+    endpoint="posts"
+    pagination-mode="loadMore"
+    @after-load-more="onLoadMore"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+
+<script setup>
+function onLoadMore(response) {
+  console.log('Loaded more items:', response.items.length)
+}
+</script>
+```
+
+## Complete Example: Switchable Modes
+
+Here's an example that lets users switch between pagination modes:
+
+```vue
+<template>
+  <div>
+    <div class="mode-toggle">
+      <button 
+        @click="mode = 'pagination'" 
+        :class="{ active: mode === 'pagination' }"
+      >
+        Pages
+      </button>
+      <button 
+        @click="mode = 'loadMore'" 
+        :class="{ active: mode === 'loadMore' }"
+      >
+        Load More
+      </button>
+    </div>
+
+    <VueList 
+      endpoint="products" 
+      :per-page="12"
+      :pagination-mode="mode"
+      :key="mode"
+    >
+      <VueListItems>
+        <template #item="{ item }">
+          <div class="product-card">
+            <h3>{{ item.name }}</h3>
+            <p>${{ item.price }}</p>
+          </div>
+        </template>
+      </VueListItems>
+      
+      <VueListPagination v-if="mode === 'pagination'" />
+      <VueListLoadMore v-else />
+    </VueList>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const mode = ref('pagination')
+</script>
+```
+
+<Tip>
+  Use the `:key` attribute when switching modes to force VueList to reset its internal state. This prevents issues with accumulated items from load-more mode appearing when switching back to pagination.
+</Tip>

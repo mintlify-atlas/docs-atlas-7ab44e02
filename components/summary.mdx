@@ -1,0 +1,279 @@
+---
+title: VueListSummary
+description: Display count summary showing current range and total items
+---
+
+The `<VueListSummary>` component displays a summary of the current view, showing which items are visible and the total count. Useful for providing context to users about where they are in the list.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListSummary />
+    
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+Default output: "Showing 10 items (1 - 10) out of 245"
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Slot
+
+The default slot receives a scope object with calculated values:
+
+```vue
+<VueListSummary #default="{ visibleCount, count, from, to }">
+  <p class="text-sm text-gray-600">
+    Showing {{ from }} - {{ to }} of {{ count }} items
+  </p>
+</VueListSummary>
+```
+
+### Scope object
+
+- `visibleCount` - Number of items currently displayed (same as `items.length`)
+- `count` - Total count from the API
+- `from` - First item number on current page (e.g., 11 on page 2 with 10 per page)
+- `to` - Last item number on current page (e.g., 20 on page 2 with 10 per page)
+
+## Calculation
+
+The component automatically calculates:
+
+```js
+from = (page * perPage) - perPage + 1
+to = Math.min(page * perPage, count)
+```
+
+For example:
+- Page 1, 25 per page: "1 - 25"
+- Page 2, 25 per page: "26 - 50"
+- Last page with 18 items: "476 - 493" (not 500)
+
+## Examples
+
+### Simple count
+
+```vue
+<VueListSummary #default="{ from, to, count }">
+  <p class="text-sm">
+    {{ from }}-{{ to }} of {{ count }}
+  </p>
+</VueListSummary>
+```
+
+### With styling
+
+```vue
+<VueListSummary #default="{ from, to, count }">
+  <div class="text-sm text-gray-600">
+    Showing <span class="font-medium text-gray-900">{{ from }}</span> to
+    <span class="font-medium text-gray-900">{{ to }}</span> of
+    <span class="font-medium text-gray-900">{{ count }}</span> results
+  </div>
+</VueListSummary>
+```
+
+### Percentage progress
+
+```vue
+<VueListSummary #default="{ to, count }">
+  <div class="summary-with-progress">
+    <p class="text-sm">
+      Showing {{ to }} of {{ count }} items
+      ({{ Math.round((to / count) * 100) }}%)
+    </p>
+    <div class="progress-bar">
+      <div
+        class="progress-fill"
+        :style="{ width: `${(to / count) * 100}%` }"
+      ></div>
+    </div>
+  </div>
+</VueListSummary>
+```
+
+### With per-page selector
+
+```vue
+<div class="flex items-center justify-between">
+  <VueListSummary #default="{ from, to, count }">
+    <span class="text-sm text-gray-600">
+      {{ from }}-{{ to }} of {{ count }}
+    </span>
+  </VueListSummary>
+  
+  <VueListPerPage :options="[10, 25, 50]" />
+</div>
+```
+
+### Compact mobile version
+
+```vue
+<VueListSummary #default="{ from, to, count }">
+  <!-- Desktop -->
+  <p class="hidden md:block text-sm text-gray-600">
+    Showing items {{ from }} to {{ to }} of {{ count }} total
+  </p>
+  
+  <!-- Mobile -->
+  <p class="md:hidden text-xs text-gray-500">
+    {{ from }}-{{ to }} / {{ count }}
+  </p>
+</VueListSummary>
+```
+
+### With search context
+
+```vue
+<VueList endpoint="products" #default="{ context }">
+  <VueListSearch />
+  
+  <VueListSummary #default="{ count }">
+    <p class="text-sm">
+      <template v-if="context.search">
+        Found {{ count }} results for "{{ context.search }}"
+      </template>
+      <template v-else>
+        {{ count }} total products
+      </template>
+    </p>
+  </VueListSummary>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Table footer
+
+```vue
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <VueListItems>
+      <template #item="{ item }">
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.email }}</td>
+          <td>{{ item.status }}</td>
+        </tr>
+      </template>
+    </VueListItems>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3">
+        <div class="flex items-center justify-between py-2">
+          <VueListSummary #default="{ from, to, count }">
+            <span class="text-sm">{{ from }}-{{ to }} of {{ count }}</span>
+          </VueListSummary>
+          <VueListPagination :page-links="5" />
+        </div>
+      </td>
+    </tr>
+  </tfoot>
+</table>
+```
+
+### With selected items
+
+```vue
+<VueList endpoint="users" #default="{ selection }">
+  <div class="flex items-center justify-between">
+    <VueListSummary #default="{ from, to, count }">
+      <div class="text-sm">
+        <span class="text-gray-600">{{ from }}-{{ to }} of {{ count }}</span>
+        <span v-if="selection.length" class="ml-2 text-blue-600">
+          ({{ selection.length }} selected)
+        </span>
+      </div>
+    </VueListSummary>
+  </div>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items with checkboxes -->
+  </VueListItems>
+</VueList>
+```
+
+## Common layouts
+
+### Above list
+
+```vue
+<VueList endpoint="products">
+  <div class="mb-4 flex items-center justify-between">
+    <VueListSummary />
+    <VueListSearch />
+  </div>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Below list with pagination
+
+```vue
+<VueList endpoint="products">
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+  
+  <div class="mt-4 flex items-center justify-between">
+    <VueListSummary />
+    <VueListPagination />
+  </div>
+</VueList>
+```
+
+### Both top and bottom
+
+```vue
+<VueList endpoint="products">
+  <VueListSummary />
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+  
+  <div class="flex items-center justify-between">
+    <VueListSummary />
+    <VueListPagination />
+  </div>
+</VueList>
+```
+
+<Tip>
+Place the summary near pagination controls so users can see their position and navigate in one glance.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Pagination" icon="arrows-left-right" href="/components/pagination">
+    Add page navigation
+  </Card>
+  <Card title="Per page selector" icon="list-ol" href="/components/per-page">
+    Let users control items per page
+  </Card>
+</CardGroup>

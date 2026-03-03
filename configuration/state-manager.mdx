@@ -1,0 +1,439 @@
+---
+title: State Manager
+description: Persist list state across sessions using localStorage, sessionStorage, or custom storage
+---
+
+## Overview
+
+The `stateManager` is an optional configuration that lets you persist user interactions across sessions or page refreshes. When a user applies filters, changes pages, or adjusts settings, you can save that state so the list looks exactly how they left it.
+
+By default, VueList keeps state in memory only - it resets on page refresh or route changes. With a `stateManager`, you can persist state to:
+
+- **localStorage** - Persists across sessions
+- **sessionStorage** - Persists until browser tab closes
+- **Vuex/Pinia** - Sync with your state management
+- **API** - Save to backend for cross-device persistence
+
+<Note>
+  The `stateManager` is completely optional. VueList works perfectly fine without it - you only add it when you need state persistence.
+</Note>
+
+## Configuration
+
+The `stateManager` is an object with three methods:
+
+<ParamField path="stateManager.init" type="function">
+  Called once when the component mounts. Use it to clean up old/stale states.
+</ParamField>
+
+<ParamField path="stateManager.get" type="function" required>
+  Called when the component mounts to restore previous state. Should return the saved state object or `null`.
+</ParamField>
+
+<ParamField path="stateManager.set" type="function" required>
+  Called whenever state changes (page, filters, search, etc.). Should save the context to storage.
+</ParamField>
+
+```js
+app.use(VueList, {
+  stateManager: {
+    init(context) {
+      // Optional: cleanup old states
+    },
+    get(context) {
+      // Return saved state or null
+    },
+    set(context) {
+      // Save the context
+    }
+  }
+})
+```
+
+## The Context Parameter
+
+All three methods receive the same `context` object. The context includes:
+
+<ParamField path="context.endpoint" type="string">
+  Unique identifier for the list (typically the API endpoint)
+</ParamField>
+
+<ParamField path="context.version" type="string | number">
+  Version number from the `<VueList version="..." />` prop
+</ParamField>
+
+<ParamField path="context.page" type="number">
+  Current page number
+</ParamField>
+
+<ParamField path="context.perPage" type="number">
+  Items per page
+</ParamField>
+
+<ParamField path="context.search" type="string">
+  Current search query
+</ParamField>
+
+<ParamField path="context.sortBy" type="string">
+  Field to sort by
+</ParamField>
+
+<ParamField path="context.sortOrder" type="'asc' | 'desc'">
+  Sort direction
+</ParamField>
+
+<ParamField path="context.filters" type="object">
+  Applied filters
+</ParamField>
+
+<ParamField path="context.attrSettings" type="object">
+  Column visibility and settings
+</ParamField>
+
+<ParamField path="context.meta" type="any">
+  Additional metadata from the component
+</ParamField>
+
+## Examples
+
+### Basic localStorage Implementation
+
+```js main.js
+app.use(VueList, {
+  stateManager: {
+    set(context) {
+      const key = `vue-list-${context.endpoint}`
+      localStorage.setItem(key, JSON.stringify(context))
+    },
+    
+    get(context) {
+      const key = `vue-list-${context.endpoint}`
+      const stored = localStorage.getItem(key)
+      return stored ? JSON.parse(stored) : null
+    },
+    
+    init() {
+      // No cleanup needed for basic implementation
+    }
+  }
+})
+```
+
+### Production-Ready Implementation with Versioning
+
+This example from the VueList playground shows a complete implementation with version-based cleanup:
+
+```js vue-list.js
+function stateManagerKey(endpoint, version) {
+  return `vue-list--${endpoint}--${version}`
+}
+
+export default {
+  stateManager: {
+    init(context) {
+      const { endpoint, version } = context
+      
+      // Find all keys for this endpoint
+      const prefix = `vue-list--${endpoint}--`
+      const currentKey = stateManagerKey(endpoint, version)
+      
+      // Remove stale keys from old versions
+      const staleKeys = Object.keys(localStorage).filter(
+        (key) => key.startsWith(prefix) && key !== currentKey
+      )
+      
+      staleKeys.forEach((key) => localStorage.removeItem(key))
+    },
+
+    set(context) {
+      const { endpoint, version, search, page, perPage, sortBy, sortOrder, filters, attrSettings } = context
+      
+      const key = stateManagerKey(endpoint, version)
+      const state = {
+        search,
+        page,
+        perPage,
+        sortBy,
+        sortOrder,
+        filters,
+        attrSettings
+      }
+      
+      localStorage.setItem(key, JSON.stringify(state))
+    },
+
+    get(context) {
+      const { endpoint, version } = context
+      const key = stateManagerKey(endpoint, version)
+      
+      try {
+        const stored = localStorage.getItem(key)
+        return stored ? JSON.parse(stored) : null
+      } catch (error) {
+        console.error('Failed to parse stored state:', error)
+        return null
+      }
+    }
+  }
+}
+```
+
+<Note>
+  The version-based approach is crucial for production apps. When you update your list configuration, increment the version number to invalidate old saved states.
+</Note>
+
+### Using sessionStorage
+
+For state that should only persist during the browser session:
+
+```js main.js
+app.use(VueList, {
+  stateManager: {
+    set(context) {
+      const key = `vue-list-${context.endpoint}-${context.version}`
+      sessionStorage.setItem(key, JSON.stringify(context))
+    },
+    
+    get(context) {
+      const key = `vue-list-${context.endpoint}-${context.version}`
+      const stored = sessionStorage.getItem(key)
+      return stored ? JSON.parse(stored) : null
+    },
+    
+    init(context) {
+      // Clean up old versions
+      const prefix = `vue-list-${context.endpoint}-`
+      const currentKey = `${prefix}${context.version}`
+      
+      Object.keys(sessionStorage)
+        .filter(key => key.startsWith(prefix) && key !== currentKey)
+        .forEach(key => sessionStorage.removeItem(key))
+    }
+  }
+})
+```
+
+### Integration with Pinia
+
+```js main.js
+import { useListStateStore } from '@/stores/listState'
+
+app.use(VueList, {
+  stateManager: {
+    set(context) {
+      const store = useListStateStore()
+      store.saveListState(context.endpoint, context)
+    },
+    
+    get(context) {
+      const store = useListStateStore()
+      return store.getListState(context.endpoint)
+    },
+    
+    init(context) {
+      const store = useListStateStore()
+      store.cleanupOldVersions(context.endpoint, context.version)
+    }
+  }
+})
+```
+
+### API-Based Persistence
+
+For cross-device state synchronization:
+
+```js main.js
+import axios from 'axios'
+
+app.use(VueList, {
+  stateManager: {
+    async set(context) {
+      try {
+        await axios.post('/api/user/list-state', {
+          endpoint: context.endpoint,
+          version: context.version,
+          state: {
+            page: context.page,
+            perPage: context.perPage,
+            search: context.search,
+            sortBy: context.sortBy,
+            sortOrder: context.sortOrder,
+            filters: context.filters,
+            attrSettings: context.attrSettings
+          }
+        })
+      } catch (error) {
+        console.error('Failed to save state:', error)
+      }
+    },
+    
+    async get(context) {
+      try {
+        const { data } = await axios.get('/api/user/list-state', {
+          params: {
+            endpoint: context.endpoint,
+            version: context.version
+          }
+        })
+        return data.state
+      } catch (error) {
+        console.error('Failed to load state:', error)
+        return null
+      }
+    },
+    
+    async init(context) {
+      try {
+        await axios.delete('/api/user/list-state/cleanup', {
+          params: {
+            endpoint: context.endpoint,
+            currentVersion: context.version
+          }
+        })
+      } catch (error) {
+        console.error('Failed to cleanup old states:', error)
+      }
+    }
+  }
+})
+```
+
+## How VueList Uses State Manager
+
+### On Component Mount
+
+1. VueList calls `init(context)` to allow cleanup of stale states
+2. VueList calls `get(context)` to restore previous state
+3. If state is found, it overrides initial prop values (except `page` if in URL)
+4. VueList fetches data with the restored/initial state
+
+### On State Change
+
+Whenever the user interacts with the list (changes page, applies filter, searches, etc.):
+
+1. VueList updates internal state
+2. VueList calls `set(context)` with the new context
+3. Your `stateManager` saves the new state
+
+<Warning>
+  VueList calls `set()` on **every** state change. If you're using an API for persistence, consider debouncing or throttling the requests.
+</Warning>
+
+## What Gets Persisted
+
+The following properties are typically saved and restored:
+
+- `page` - Current page number
+- `perPage` - Items per page
+- `search` - Search query
+- `sortBy` - Sort field
+- `sortOrder` - Sort direction
+- `filters` - Applied filters
+- `attrSettings` - Column visibility settings
+
+The `endpoint` and `version` are used as keys to identify which state to load, but are not typically saved in the state itself.
+
+## Version Management
+
+The `version` prop on `<VueList>` is crucial for state management:
+
+```vue ProductList.vue
+<template>
+  <VueList 
+    endpoint="products" 
+    :version="2"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+```
+
+<AccordionGroup>
+  <Accordion title="Why use versions?">
+    When you change your list configuration (add new filters, change default sort, etc.), old saved states may be incompatible. Incrementing the version number tells VueList to ignore old states and start fresh.
+  </Accordion>
+  
+  <Accordion title="When to increment the version?">
+    - Adding or removing filters
+    - Changing default values
+    - Modifying the data structure
+    - Any breaking change to list configuration
+  </Accordion>
+  
+  <Accordion title="What happens to old states?">
+    The `init()` method can clean up old version states to prevent localStorage bloat. See the production example above for implementation.
+  </Accordion>
+</AccordionGroup>
+
+## Default Implementation
+
+If you don't provide a `stateManager`, VueList uses these no-op functions:
+
+```js options.js
+stateManager: {
+  set() {},
+  get() {},
+  init() {}
+}
+```
+
+This means state is never persisted and resets on every component remount.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always use try-catch in get()">
+    localStorage can fail or contain corrupted data. Always wrap `JSON.parse()` in a try-catch and return `null` on error.
+  </Accordion>
+  
+  <Accordion title="Include version in storage keys">
+    This allows you to invalidate old states when your list configuration changes.
+  </Accordion>
+  
+  <Accordion title="Clean up stale states in init()">
+    Prevent localStorage bloat by removing old version states during initialization.
+  </Accordion>
+  
+  <Accordion title="Don't persist sensitive data">
+    Avoid saving sensitive information in localStorage. Consider using sessionStorage or API-based persistence for sensitive lists.
+  </Accordion>
+  
+  <Accordion title="Test with and without saved state">
+    Always test both the "first visit" and "returning user" scenarios to ensure your state restoration works correctly.
+  </Accordion>
+  
+  <Accordion title="Consider debouncing API calls">
+    If using API-based persistence, debounce the `set()` calls to avoid excessive server requests.
+  </Accordion>
+</AccordionGroup>
+
+## Debugging State Issues
+
+If state persistence isn't working:
+
+1. Check browser console for localStorage errors
+2. Verify the storage key format matches between `get()` and `set()`
+3. Ensure `version` prop is set on the component
+4. Check that `get()` returns an object (not a string)
+5. Verify `init()` isn't accidentally clearing the current version
+
+```js
+// Add logging to debug
+stateManager: {
+  set(context) {
+    console.log('Saving state:', context.endpoint, context)
+    // ... your implementation
+  },
+  get(context) {
+    const state = // ... your implementation
+    console.log('Loaded state:', context.endpoint, state)
+    return state
+  }
+}
+```
+
+## Related
+
+- [Configuration Overview](/configuration/overview) - Complete plugin setup guide
+- [VueList Component](/components/vue-list) - See the `version` prop documentation
+- [Request Handler](/configuration/request-handler) - How data fetching works

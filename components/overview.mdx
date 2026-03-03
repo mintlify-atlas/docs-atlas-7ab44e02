@@ -1,0 +1,147 @@
+---
+title: Components overview
+description: Understanding VueList's headless component architecture
+---
+
+VueList is built with a **headless component architecture** — it handles all the data fetching, state management, and list logic for you, but doesn't impose any UI styling. Instead, it provides a set of composable components that expose useful state and behaviors through slots.
+
+## Architecture
+
+The component system follows a provider-consumer pattern:
+
+1. **`<VueList>`** - The root component that manages all state and provides it to child components
+2. **Child components** - Consume the state via Vue's `inject` API and render UI based on that state
+
+All child components automatically have access to the list's internal state without needing to pass props manually. This makes composition simple and flexible.
+
+## Component categories
+
+### Core components
+
+<CardGroup cols={2}>
+  <Card title="VueList" icon="list" href="/components/vue-list">
+    Root component that manages list state and API calls
+  </Card>
+  <Card title="VueListItems" icon="table" href="/components/items">
+    Renders the list items with customizable slots
+  </Card>
+</CardGroup>
+
+### Navigation components
+
+<CardGroup cols={2}>
+  <Card title="VueListPagination" icon="arrows-left-right" href="/components/pagination">
+    Page-based navigation with customizable page links
+  </Card>
+  <Card title="VueListLoadMore" icon="arrow-down" href="/components/load-more">
+    Infinite scroll with a load more button
+  </Card>
+  <Card title="VueListGoTo" icon="location-dot" href="/components/go-to">
+    Dropdown to jump to a specific page
+  </Card>
+</CardGroup>
+
+### Control components
+
+<CardGroup cols={2}>
+  <Card title="VueListSearch" icon="magnifying-glass" href="/components/search">
+    Search input with debouncing
+  </Card>
+  <Card title="VueListPerPage" icon="list-ol" href="/components/per-page">
+    Select how many items to show per page
+  </Card>
+  <Card title="VueListRefresh" icon="rotate" href="/components/refresh">
+    Button to refresh the current data
+  </Card>
+  <Card title="VueListAttributes" icon="sliders" href="/components/attributes">
+    Toggle visibility of table columns
+  </Card>
+</CardGroup>
+
+### Status components
+
+<CardGroup cols={2}>
+  <Card title="VueListLoader" icon="spinner" href="/components/loader">
+    Shows loading state during data fetches
+  </Card>
+  <Card title="VueListInitialLoader" icon="hourglass" href="/components/initial-loader">
+    Shows loading state on first load only
+  </Card>
+  <Card title="VueListError" icon="triangle-exclamation" href="/components/error">
+    Displays API errors
+  </Card>
+  <Card title="VueListEmpty" icon="inbox" href="/components/empty">
+    Shows message when no items exist
+  </Card>
+  <Card title="VueListSummary" icon="chart-simple" href="/components/summary">
+    Displays count summary (showing X-Y of Z)
+  </Card>
+</CardGroup>
+
+## Basic example
+
+```vue
+<template>
+  <VueList endpoint="products" :per-page="10">
+    <VueListSearch />
+    <VueListInitialLoader />
+    <VueListError />
+    
+    <VueListItems #default="{ items }">
+      <div v-for="item in items" :key="item.id">
+        <h3>{{ item.name }}</h3>
+        <p>{{ item.price }}</p>
+      </div>
+    </VueListItems>
+    
+    <VueListLoader />
+    <VueListEmpty />
+    <VueListPagination />
+  </VueList>
+</template>
+```
+
+## Key principles
+
+### 1. Headless by design
+
+Components don't render any styled UI by default. They provide default slots that you can override with your own markup and styling.
+
+### 2. Use only what you need
+
+You don't have to use every component. Pick the ones that match your UI requirements.
+
+### 3. Full styling control
+
+Wrap components in your own elements, use Tailwind, Bootstrap, or any CSS framework. The components add minimal wrapper divs with class names for targeting.
+
+### 4. Automatic state injection
+
+Child components automatically access list state via Vue's provide/inject. No manual prop passing required.
+
+## State injection
+
+The `<VueList>` component provides these values to all child components:
+
+- `items` - Array of data items
+- `count` - Total count from API
+- `isLoading` - Current loading state
+- `isInitialLoading` - True only on first load
+- `error` - Error object if request failed
+- `localPage` - Current page number
+- `localPerPage` - Items per page
+- `localSearch` - Current search query
+- `localSortBy` - Current sort column
+- `localSortOrder` - Current sort direction
+- Methods: `setPage`, `setPerPage`, `setSearch`, `setSort`, `refresh`, `loadMore`
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="VueList component" icon="play" href="/components/vue-list">
+    Learn about the root component and its props
+  </Card>
+  <Card title="Custom styling guide" icon="paintbrush" href="/guides/custom-styling">
+    See examples of styling components
+  </Card>
+</CardGroup>

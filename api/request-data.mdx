@@ -1,0 +1,198 @@
+---
+title: 'Request Data'
+description: 'Data structure passed to the request handler'
+---
+
+The request handler receives a data object containing all the information needed to fetch paginated and filtered data. This object is essentially the [context object](/api/context-object) with potential additional properties.
+
+## Structure
+
+The request data passed to your `requestHandler` function includes:
+
+```typescript
+type RequestData = {
+  endpoint: string
+  version: string | number
+  meta: any
+  search: string
+  page: number
+  perPage: number
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+  filters: object
+  attrSettings: object
+  isRefresh: boolean
+  // ... any additional properties from addContext
+}
+```
+
+## Properties
+
+<ParamField path="endpoint" type="string">
+  API endpoint URL for fetching data.
+</ParamField>
+
+<ParamField path="version" type="string | number" default="1">
+  Version identifier for state management.
+</ParamField>
+
+<ParamField path="meta" type="any">
+  Additional metadata passed from the VueList component's `meta` prop. Use this for any custom data your API needs.
+</ParamField>
+
+<ParamField path="search" type="string">
+  Current search query string.
+</ParamField>
+
+<ParamField path="page" type="number">
+  Current page number (1-based index).
+</ParamField>
+
+<ParamField path="perPage" type="number" default="25">
+  Number of items requested per page.
+</ParamField>
+
+<ParamField path="sortBy" type="string">
+  Field name to sort by.
+</ParamField>
+
+<ParamField path="sortOrder" type="'asc' | 'desc'" default="'desc'">
+  Sort direction. Either `'asc'` for ascending or `'desc'` for descending.
+</ParamField>
+
+<ParamField path="filters" type="object">
+  Current filter values from `v-model:filters` binding.
+</ParamField>
+
+<ParamField path="attrSettings" type="object">
+  Attribute/column visibility and settings.
+</ParamField>
+
+<ParamField path="isRefresh" type="boolean" default="false">
+  `true` when the request is triggered by calling `refresh()`, `false` otherwise.
+</ParamField>
+
+## Example Usage
+
+Here's a complete example of handling the request data:
+
+```javascript
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  requestHandler: async (requestData) => {
+    // Construct your API request
+    const params = new URLSearchParams()
+    
+    // Pagination
+    params.append('page', requestData.page)
+    params.append('per_page', requestData.perPage)
+    
+    // Search
+    if (requestData.search) {
+      params.append('q', requestData.search)
+    }
+    
+    // Sorting
+    if (requestData.sortBy) {
+      params.append('sort_by', requestData.sortBy)
+      params.append('sort_order', requestData.sortOrder)
+    }
+    
+    // Filters
+    if (requestData.filters) {
+      Object.entries(requestData.filters).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          params.append(`filter[${key}]`, value)
+        }
+      })
+    }
+    
+    // Meta data
+    if (requestData.meta) {
+      Object.entries(requestData.meta).forEach(([key, value]) => {
+        params.append(key, value)
+      })
+    }
+    
+    // Make the API request
+    const response = await fetch(
+      `${requestData.endpoint}?${params.toString()}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          // Add authentication headers if needed
+        }
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    // Return the required format
+    return {
+      items: data.items,      // Array of items
+      count: data.total       // Total count for pagination
+    }
+  }
+})
+```
+
+## Return Value
+
+Your request handler must return a Promise that resolves to an object with:
+
+<ResponseField name="items" type="array" required>
+  Array of items to display in the list.
+  
+  ```javascript
+  items: [
+    { id: 1, name: 'John', email: 'john@example.com' },
+    { id: 2, name: 'Jane', email: 'jane@example.com' }
+  ]
+  ```
+</ResponseField>
+
+<ResponseField name="count" type="number" required>
+  Total number of items available (not just the current page). This is used for calculating pagination.
+  
+  ```javascript
+  count: 150
+  ```
+</ResponseField>
+
+## Additional Context
+
+You can pass additional context when calling certain methods:
+
+```javascript
+// In your component
+const listRef = ref()
+
+// Refresh with additional context
+listRef.value.refresh({ 
+  isRefresh: true,
+  forceReload: true 
+})
+```
+
+These additional properties will be merged into the request data:
+
+```javascript
+requestHandler: async (requestData) => {
+  if (requestData.forceReload) {
+    // Handle force reload logic
+  }
+  // ...
+}
+```
+
+<Note>
+  The request handler can be defined globally in the plugin options or overridden per VueList component using the `requestHandler` prop.
+</Note>

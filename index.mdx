@@ -1,55 +1,73 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: VueList - Simplified API-based List Rendering
+description: Build listing layouts faster by abstracting away the boilerplate of API calls, pagination, and state management for Vue 3
 ---
 
-## Setting up
+# VueList
 
-Get your documentation site up and running in minutes.
+Simplified API-based list rendering for Vue 3. Build listing layouts faster by abstracting away the boilerplate of API calls, pagination, and state management.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Headless Components" icon="cube">
+    Fully customizable UI with complete control over styling and markup. Use the default slots or build your own.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Centralized Request Handling" icon="server">
+    Configure your API logic once in the plugin. All list components use the same request handler.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Reactive State Management" icon="arrows-rotate">
+    Automatic state synchronization across pagination, search, filters, and sorting. No manual state management needed.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="URL Sync & Persistence" icon="link">
+    Built-in URL query parameter sync for pagination and localStorage persistence to restore user's list state.
   </Card>
-</Columns>
+</CardGroup>
+
+## The Problem
+
+Listing pages are everywhere in web applications — users, products, orders, tasks. And every time you build one, you write the same boilerplate:
+
+- `page`, `perPage` state variables
+- `filters`, `search`, `sortBy` logic
+- `isLoading`, `data`, `error` handling
+- API calls with complex parameter management
+- URL synchronization for pagination
+- State persistence across page navigation
+
+**VueList eliminates this repetition.**
+
+## The Solution
+
+With VueList, you configure your API logic once and use declarative components to build any list:
+
+```vue
+<VueList endpoint="users" :per-page="10" pagination-mode="pagination">
+  <VueListSearch />
+  <VueListInitialLoader />
+  <VueListItems #default="{items}">
+    <UserCard v-for="user in items" :key="user.id" :user="user" />
+  </VueListItems>
+  <VueListPagination />
+</VueList>
+```
+
+No state variables. No API calls. No boilerplate. Just components.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Why VueList?" icon="question" href="/why-vue-list">
+    Learn more about the problems VueList solves
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install VueList in your Vue 3 project
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first list in 5 minutes
+  </Card>
+  <Card title="Components" icon="cube" href="/components/overview">
+    Explore all available components
+  </Card>
+</CardGroup>
 
 ## Create beautiful pages
 

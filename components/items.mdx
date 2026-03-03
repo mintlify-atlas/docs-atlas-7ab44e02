@@ -1,0 +1,209 @@
+---
+title: VueListItems
+description: Component for rendering list items with flexible slot options
+---
+
+The `<VueListItems>` component renders your data items. It automatically hides during initial loading and provides flexible slot options for customizing how items are displayed.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        <h3>{{ user.name }}</h3>
+        <p>{{ user.email }}</p>
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Slots
+
+### Default slot
+
+The default slot receives the `items` array:
+
+```vue
+<VueListItems #default="{ items }">
+  <ul>
+    <li v-for="item in items" :key="item.id">
+      {{ item.name }}
+    </li>
+  </ul>
+</VueListItems>
+```
+
+### Item slot
+
+The `item` slot is called for each item individually:
+
+```vue
+<VueListItems>
+  <template #item="{ item, index }">
+    <div class="product-card">
+      <span class="index">{{ index + 1 }}</span>
+      <h3>{{ item.name }}</h3>
+      <p>{{ item.description }}</p>
+    </div>
+  </template>
+</VueListItems>
+```
+
+## Behavior
+
+- **Automatically hidden during initial load**: The component won't render until `isInitialLoading` is false
+- **Renders empty during subsequent loads**: Shows your items (even if empty) during pagination or filter changes
+- **Works with both pagination modes**: Compatible with standard pagination and load-more modes
+
+## Examples
+
+### Simple list
+
+```vue
+<VueListItems #default="{ items }">
+  <ul class="user-list">
+    <li v-for="user in items" :key="user.id">
+      {{ user.name }} - {{ user.email }}
+    </li>
+  </ul>
+</VueListItems>
+```
+
+### Card grid
+
+```vue
+<VueListItems #default="{ items }">
+  <div class="grid grid-cols-3 gap-4">
+    <div v-for="product in items" :key="product.id" class="card">
+      <img :src="product.image" :alt="product.name" />
+      <h3>{{ product.name }}</h3>
+      <p class="price">{{ product.price }}</p>
+      <button>Add to cart</button>
+    </div>
+  </div>
+</VueListItems>
+```
+
+### Table
+
+```vue
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <VueListItems>
+      <template #item="{ item }">
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.email }}</td>
+          <td>
+            <span :class="item.active ? 'badge-success' : 'badge-muted'">
+              {{ item.active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+        </tr>
+      </template>
+    </VueListItems>
+  </tbody>
+</table>
+```
+
+### With selection
+
+```vue
+<VueList endpoint="users" #default="{ selection, setSelection }">
+  <VueListItems #default="{ items }">
+    <div v-for="user in items" :key="user.id" class="user-row">
+      <input
+        type="checkbox"
+        :checked="selection.includes(user.id)"
+        @change="toggleSelection(user.id, selection, setSelection)"
+      />
+      <span>{{ user.name }}</span>
+    </div>
+  </VueListItems>
+</VueList>
+
+<script setup>
+function toggleSelection(id, selection, setSelection) {
+  if (selection.includes(id)) {
+    setSelection(selection.filter(item => item !== id))
+  } else {
+    setSelection([...selection, id])
+  }
+}
+</script>
+```
+
+### Using item slot
+
+```vue
+<VueListItems>
+  <template #item="{ item, index }">
+    <article class="post">
+      <div class="post-number">{{ index + 1 }}</div>
+      <h2>{{ item.title }}</h2>
+      <p>{{ item.excerpt }}</p>
+      <time>{{ item.published_at }}</time>
+    </article>
+  </template>
+</VueListItems>
+```
+
+## Combining with loaders and empty states
+
+```vue
+<VueList endpoint="products">
+  <VueListInitialLoader>
+    <div class="skeleton">
+      <div class="skeleton-item" v-for="i in 5" :key="i" />
+    </div>
+  </VueListInitialLoader>
+
+  <VueListItems #default="{ items }">
+    <div class="product-grid">
+      <div v-for="product in items" :key="product.id" class="product-card">
+        {{ product.name }}
+      </div>
+    </div>
+  </VueListItems>
+
+  <VueListEmpty>
+    <div class="empty-state">
+      <p>No products found</p>
+      <button>Clear filters</button>
+    </div>
+  </VueListEmpty>
+
+  <VueListLoader>
+    <div class="loading-overlay">Loading more...</div>
+  </VueListLoader>
+</VueList>
+```
+
+<Note>
+The `<VueListItems>` component automatically hides during the initial load. Use `<VueListInitialLoader>` to show a loading state while data is being fetched for the first time.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Pagination" icon="arrows-left-right" href="/components/pagination">
+    Add page navigation to your list
+  </Card>
+  <Card title="Custom styling" icon="paintbrush" href="/guides/custom-styling">
+    Learn how to style your items
+  </Card>
+</CardGroup>

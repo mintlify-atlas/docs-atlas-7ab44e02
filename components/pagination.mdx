@@ -1,0 +1,283 @@
+---
+title: VueListPagination
+description: Page-based navigation component with customizable page links
+---
+
+The `<VueListPagination>` component renders page numbers and navigation buttons. It's fully customizable through slots and works automatically with the list's pagination state.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users" pagination-mode="pagination">
+    <VueListItems #default="{ items }">
+      <!-- render items -->
+    </VueListItems>
+    
+    <VueListPagination />
+  </VueList>
+</template>
+```
+
+## Props
+
+<ParamField path="pageLinks" type="number" default="5">
+  Number of page buttons to display. The current page will be centered with additional pages shown on both sides. An odd number is recommended for balanced display.
+  
+  ```vue
+  <VueListPagination :page-links="7" />
+  ```
+</ParamField>
+
+## Slots
+
+All slots receive a scope object with pagination state and methods.
+
+### Default slot
+
+The default slot renders the entire pagination UI:
+
+```vue
+<VueListPagination #default="{ page, pagesCount, hasNext, hasPrev, setPage }">
+  <div class="pagination">
+    <button :disabled="!hasPrev" @click="setPage(page - 1)">Previous</button>
+    <span>Page {{ page }} of {{ pagesCount }}</span>
+    <button :disabled="!hasNext" @click="setPage(page + 1)">Next</button>
+  </div>
+</VueListPagination>
+```
+
+### Individual slots
+
+You can customize individual parts of the pagination:
+
+#### `first` slot
+
+```vue
+<VueListPagination>
+  <template #first="{ hasPrev, first }">
+    <button :disabled="!hasPrev" @click="first" class="btn-first">
+      « First
+    </button>
+  </template>
+</VueListPagination>
+```
+
+#### `prev` slot
+
+```vue
+<VueListPagination>
+  <template #prev="{ hasPrev, prev }">
+    <button :disabled="!hasPrev" @click="prev">
+      ← Previous
+    </button>
+  </template>
+</VueListPagination>
+```
+
+#### `pages` slot
+
+Renders all page number buttons:
+
+```vue
+<VueListPagination>
+  <template #pages="{ pagesToDisplay, page, setPage }">
+    <button
+      v-for="pageNum in pagesToDisplay"
+      :key="pageNum"
+      :class="{ active: pageNum === page }"
+      @click="setPage(pageNum)"
+    >
+      {{ pageNum }}
+    </button>
+  </template>
+</VueListPagination>
+```
+
+#### `page` slot
+
+Renders individual page buttons (inside the `pages` slot):
+
+```vue
+<VueListPagination>
+  <template #page="{ page: pageNum, isActive, setPage }">
+    <button
+      :class="{ 'bg-blue-500': isActive, 'bg-gray-200': !isActive }"
+      @click="setPage(pageNum)"
+    >
+      {{ pageNum }}
+    </button>
+  </template>
+</VueListPagination>
+```
+
+#### `next` slot
+
+```vue
+<VueListPagination>
+  <template #next="{ hasNext, next }">
+    <button :disabled="!hasNext" @click="next">
+      Next →
+    </button>
+  </template>
+</VueListPagination>
+```
+
+#### `last` slot
+
+```vue
+<VueListPagination>
+  <template #last="{ hasNext, last }">
+    <button :disabled="!hasNext" @click="last">
+      Last »
+    </button>
+  </template>
+</VueListPagination>
+```
+
+## Scope object
+
+All slots receive these properties:
+
+- `page` - Current page number
+- `perPage` - Items per page
+- `count` - Total item count
+- `pagesCount` - Total number of pages
+- `pagesToDisplay` - Array of page numbers to show
+- `halfWay` - Half of pageLinks (for centering logic)
+- `hasNext` - Boolean, true if next page exists
+- `hasPrev` - Boolean, true if previous page exists
+- `prev()` - Go to previous page
+- `next()` - Go to next page
+- `first()` - Go to first page
+- `last()` - Go to last page
+- `setPage(num)` - Go to specific page
+
+## Examples
+
+### Tailwind CSS styling
+
+```vue
+<VueListPagination :page-links="7">
+  <template #default="{ hasPrev, hasNext, prev, next, pagesToDisplay, page, setPage }">
+    <div class="flex items-center gap-2">
+      <button
+        @click="prev"
+        :disabled="!hasPrev"
+        class="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+      >
+        Previous
+      </button>
+
+      <button
+        v-for="pageNum in pagesToDisplay"
+        :key="pageNum"
+        @click="setPage(pageNum)"
+        :class="[
+          'px-4 py-2 rounded',
+          pageNum === page
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-100 hover:bg-gray-200'
+        ]"
+      >
+        {{ pageNum }}
+      </button>
+
+      <button
+        @click="next"
+        :disabled="!hasNext"
+        class="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  </template>
+</VueListPagination>
+```
+
+### Compact pagination
+
+```vue
+<VueListPagination>
+  <template #default="{ page, pagesCount, hasNext, hasPrev, prev, next }">
+    <div class="compact-pagination">
+      <button :disabled="!hasPrev" @click="prev">←</button>
+      <span>{{ page }} / {{ pagesCount }}</span>
+      <button :disabled="!hasNext" @click="next">→</button>
+    </div>
+  </template>
+</VueListPagination>
+```
+
+### With page input
+
+```vue
+<VueListPagination>
+  <template #default="{ page, pagesCount, setPage, hasNext, hasPrev, prev, next }">
+    <div class="pagination-with-input">
+      <button :disabled="!hasPrev" @click="prev">Previous</button>
+      
+      <div class="page-input">
+        <input
+          type="number"
+          :value="page"
+          @change="setPage(Number($event.target.value))"
+          :min="1"
+          :max="pagesCount"
+        />
+        <span>of {{ pagesCount }}</span>
+      </div>
+      
+      <button :disabled="!hasNext" @click="next">Next</button>
+    </div>
+  </template>
+</VueListPagination>
+```
+
+### Mobile-friendly pagination
+
+```vue
+<VueListPagination :page-links="3">
+  <template #default="scope">
+    <!-- Desktop -->
+    <div class="hidden md:flex items-center gap-2">
+      <button @click="scope.first" :disabled="!scope.hasPrev">First</button>
+      <button @click="scope.prev" :disabled="!scope.hasPrev">Prev</button>
+      
+      <button
+        v-for="pageNum in scope.pagesToDisplay"
+        :key="pageNum"
+        @click="scope.setPage(pageNum)"
+        :class="{ active: pageNum === scope.page }"
+      >
+        {{ pageNum }}
+      </button>
+      
+      <button @click="scope.next" :disabled="!scope.hasNext">Next</button>
+      <button @click="scope.last" :disabled="!scope.hasNext">Last</button>
+    </div>
+
+    <!-- Mobile -->
+    <div class="md:hidden flex items-center justify-between">
+      <button @click="scope.prev" :disabled="!scope.hasPrev">←</button>
+      <span>{{ scope.page }} / {{ scope.pagesCount }}</span>
+      <button @click="scope.next" :disabled="!scope.hasNext">→</button>
+    </div>
+  </template>
+</VueListPagination>
+```
+
+<Tip>
+Use an odd number for `pageLinks` (like 5, 7, 9) to center the current page nicely with equal buttons on both sides.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Load More" icon="arrow-down" href="/components/load-more">
+    Alternative infinite scroll pagination
+  </Card>
+  <Card title="Go To" icon="location-dot" href="/components/go-to">
+    Jump to a specific page with a dropdown
+  </Card>
+</CardGroup>

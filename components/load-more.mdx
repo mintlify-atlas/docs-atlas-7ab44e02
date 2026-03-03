@@ -1,0 +1,233 @@
+---
+title: VueListLoadMore
+description: Infinite scroll component with a load more button
+---
+
+The `<VueListLoadMore>` component enables infinite scrolling by providing a button to load additional items. It automatically appends new items to the existing list instead of replacing them.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="products" pagination-mode="loadMore">
+    <VueListItems #default="{ items }">
+      <div v-for="product in items" :key="product.id">
+        {{ product.name }}
+      </div>
+    </VueListItems>
+    
+    <VueListLoadMore />
+  </VueList>
+</template>
+```
+
+<Note>
+**Important**: Set `pagination-mode="loadMore"` on the `<VueList>` component to enable load more behavior.
+</Note>
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Slot
+
+The default slot receives a scope object:
+
+```vue
+<VueListLoadMore #default="{ loadMore, isLoading, hasMoreItems }">
+  <button
+    @click="loadMore"
+    :disabled="isLoading || !hasMoreItems"
+    class="load-more-btn"
+  >
+    {{ isLoading ? 'Loading...' : hasMoreItems ? 'Load More' : 'No more items' }}
+  </button>
+</VueListLoadMore>
+```
+
+### Scope object
+
+- `loadMore()` - Function to load the next page of items
+- `isLoading` - Boolean, true during data fetch
+- `hasMoreItems` - Boolean, true if more items are available
+
+## Examples
+
+### Styled button
+
+```vue
+<VueListLoadMore #default="{ loadMore, isLoading, hasMoreItems }">
+  <div class="text-center py-8">
+    <button
+      v-if="hasMoreItems"
+      @click="loadMore"
+      :disabled="isLoading"
+      class="px-6 py-3 bg-blue-500 text-white rounded-lg disabled:bg-gray-400"
+    >
+      {{ isLoading ? 'Loading...' : 'Load More Products' }}
+    </button>
+    <p v-else class="text-gray-500">
+      You've reached the end!
+    </p>
+  </div>
+</VueListLoadMore>
+```
+
+### With loading spinner
+
+```vue
+<VueListLoadMore #default="{ loadMore, isLoading, hasMoreItems }">
+  <div class="load-more-container">
+    <button
+      v-if="hasMoreItems"
+      @click="loadMore"
+      :disabled="isLoading"
+      class="btn-load-more"
+    >
+      <span v-if="isLoading" class="spinner"></span>
+      <span v-else>Load More</span>
+    </button>
+    <div v-else class="end-message">
+      ✔ All items loaded
+    </div>
+  </div>
+</VueListLoadMore>
+```
+
+### Intersection Observer (true infinite scroll)
+
+Automatically load more when scrolling to the bottom:
+
+```vue
+<template>
+  <VueList endpoint="products" pagination-mode="loadMore">
+    <VueListItems #default="{ items }">
+      <div v-for="product in items" :key="product.id">
+        {{ product.name }}
+      </div>
+    </VueListItems>
+    
+    <VueListLoadMore>
+      <template #default="{ loadMore, isLoading, hasMoreItems }">
+        <div ref="loadMoreTrigger" class="h-10 flex items-center justify-center">
+          <span v-if="isLoading">Loading...</span>
+          <span v-else-if="!hasMoreItems" class="text-gray-500">
+            That's all!
+          </span>
+        </div>
+      </template>
+    </VueListLoadMore>
+  </VueList>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const loadMoreTrigger = ref(null)
+let observer = null
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting) {
+        // Trigger load more when the element comes into view
+        const loadMoreBtn = loadMoreTrigger.value?.querySelector('button')
+        if (loadMoreBtn && !loadMoreBtn.disabled) {
+          loadMoreBtn.click()
+        }
+      }
+    },
+    { threshold: 0.5 }
+  )
+
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value)
+  }
+})
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
+})
+</script>
+```
+
+### With item count
+
+```vue
+<VueList endpoint="posts" pagination-mode="loadMore" #default="{ items, count }">
+  <VueListItems #default="{ items }">
+    <article v-for="post in items" :key="post.id">
+      {{ post.title }}
+    </article>
+  </VueListItems>
+  
+  <VueListLoadMore #default="{ loadMore, isLoading, hasMoreItems }">
+    <div class="load-more-section">
+      <p class="text-sm text-gray-600">
+        Showing {{ items.length }} of {{ count }} posts
+      </p>
+      <button
+        v-if="hasMoreItems"
+        @click="loadMore"
+        :disabled="isLoading"
+      >
+        {{ isLoading ? 'Loading...' : 'Show More' }}
+      </button>
+    </div>
+  </VueListLoadMore>
+</VueList>
+```
+
+### With skeleton loader
+
+```vue
+<VueListLoadMore #default="{ loadMore, isLoading, hasMoreItems }">
+  <div v-if="isLoading" class="skeleton-loader">
+    <div class="skeleton-item" v-for="i in 3" :key="i"></div>
+  </div>
+  <button
+    v-else-if="hasMoreItems"
+    @click="loadMore"
+    class="load-more-button"
+  >
+    Load More
+  </button>
+  <div v-else class="text-center text-gray-500">
+    No more items
+  </div>
+</VueListLoadMore>
+```
+
+## How it works
+
+1. When `pagination-mode="loadMore"` is set on `<VueList>`, the component:
+   - Starts at page 1
+   - Appends new items to the existing list instead of replacing them
+   - Increments the page number with each load
+
+2. The `hasMoreItems` computed property checks if there are more items to load:
+   ```js
+   hasMoreItems = count > items.length
+   ```
+
+3. Clicking the load more button:
+   - Increments the page counter
+   - Fetches the next page
+   - Appends results to the existing items array
+
+<Warning>
+When switching from `pagination` to `loadMore` mode, make sure to set `pagination-mode="loadMore"` on the `<VueList>` component. Otherwise, the component will replace items instead of appending them.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Pagination" icon="arrows-left-right" href="/components/pagination">
+    Use page-based navigation instead
+  </Card>
+  <Card title="Pagination modes guide" icon="book" href="/guides/pagination-modes">
+    Learn more about pagination vs load more
+  </Card>
+</CardGroup>

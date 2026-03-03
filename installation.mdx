@@ -1,0 +1,320 @@
+---
+title: Installation
+description: Install and configure VueList in your Vue 3 project
+---
+
+# Installation
+
+VueList is a Vue 3 plugin that requires minimal setup. Follow this guide to install and configure it in your project.
+
+## Requirements
+
+- Vue 3.5 or higher
+- Vue Router 4.5 or higher (for URL synchronization)
+
+## Install Package
+
+Install VueList using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install @7span/vue-list
+```
+
+```bash pnpm
+pnpm add @7span/vue-list
+```
+
+```bash yarn
+yarn add @7span/vue-list
+```
+
+</CodeGroup>
+
+## Basic Setup
+
+Register VueList as a plugin in your Vue application:
+
+```javascript main.js
+import { createApp } from 'vue'
+import App from './App.vue'
+import VueList from '@7span/vue-list'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  requestHandler(context) {
+    // Your API request logic here
+    // See Configuration section below
+  }
+})
+
+app.mount('#app')
+```
+
+## Configuration
+
+VueList requires a `requestHandler` function that defines how to fetch data from your API. This is configured once during plugin installation.
+
+### Request Handler Function
+
+The `requestHandler` receives a context object with all the list state and should return a Promise that resolves to an object with `items` and `count`:
+
+```javascript
+app.use(VueList, {
+  async requestHandler(context) {
+    const {
+      endpoint,     // The endpoint name (e.g., "users", "products")
+      page,         // Current page number
+      perPage,      // Items per page
+      search,       // Search query
+      sortBy,       // Sort column
+      sortOrder,    // "asc" or "desc"
+      filters,      // Filter object
+      meta,         // Additional metadata passed from component
+      isRefresh,    // true if this is a refresh request
+      version,      // Version number for state management
+    } = context
+    
+    // Make your API request
+    const response = await axios.get(`/api/${endpoint}`, {
+      params: {
+        page,
+        limit: perPage,
+        search,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        ...filters
+      }
+    })
+    
+    // Return data in the required format
+    return {
+      items: response.data.items,  // Array of items
+      count: response.data.total   // Total count for pagination
+    }
+  }
+})
+```
+
+### Type Signature
+
+```typescript
+type RequestContext = {
+  endpoint: string
+  page: number
+  perPage: number
+  search?: string
+  sortBy?: string
+  sortOrder: 'asc' | 'desc'
+  filters?: Record<string, any>
+  meta?: any
+  isRefresh: boolean
+  version: string | number
+}
+
+type RequestResponse = {
+  items: any[]
+  count: number
+}
+
+type RequestHandler = (context: RequestContext) => Promise<RequestResponse>
+```
+
+## Complete Example with State Management
+
+Here's a complete setup with state persistence and proper error handling:
+
+```javascript plugins/vue-list.js
+import axios from 'axios'
+
+function stateManagerKey(endpoint, version) {
+  return `vue-list--${endpoint}--${version}`
+}
+
+export default {
+  // Optional: Persist list state in localStorage
+  stateManager: {
+    init(context) {
+      const { endpoint, version } = context
+      const allKeys = `vue-list--${endpoint}--`
+      const latestKey = stateManagerKey(endpoint, version)
+      
+      // Clean up stale states from old versions
+      const staleKeys = Object.keys(localStorage).filter(
+        (key) => key.startsWith(allKeys) && key !== latestKey
+      )
+      staleKeys.forEach((key) => localStorage.removeItem(key))
+    },
+    
+    set(context) {
+      const { endpoint, version, search, page, perPage, sortBy, sortOrder, filters, attrSettings } = context
+      const key = stateManagerKey(endpoint, version)
+      
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          search,
+          page,
+          perPage,
+          sortBy,
+          sortOrder,
+          filters,
+          attrSettings,
+        })
+      )
+    },
+    
+    get(context) {
+      const { endpoint, version } = context
+      const key = stateManagerKey(endpoint, version)
+      
+      try {
+        const data = localStorage.getItem(key)
+        return data ? JSON.parse(data) : null
+      } catch {
+        return null
+      }
+    },
+  },
+  
+  // Request handler for API calls
+  async requestHandler(context) {
+    const { endpoint, search, filters, perPage, page, sortBy, sortOrder } = context
+    
+    try {
+      const response = await axios.get(`/api/${endpoint}`, {
+        params: {
+          page,
+          limit: perPage,
+          search,
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          ...filters
+        }
+      })
+      
+      return {
+        items: response.data.items,
+        count: response.data.total
+      }
+    } catch (error) {
+      console.error('VueList request failed:', error)
+      throw error
+    }
+  },
+}
+```
+
+Then import and use it:
+
+```javascript main.js
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+import VueList from '@7span/vue-list'
+import vueListOptions from './plugins/vue-list'
+
+const app = createApp(App)
+
+app.use(router)
+app.use(VueList, vueListOptions)
+
+app.mount('#app')
+```
+
+## Configuration Options
+
+### Component Prefix
+
+By default, components are registered without a prefix (`VueList`, `VueListItems`, etc.). You can add a custom prefix:
+
+```javascript
+app.use(VueList, {
+  componentPrefix: 'My',  // Components become MyVueList, MyVueListItems, etc.
+  requestHandler(context) {
+    // ...
+  }
+})
+```
+
+### State Manager (Optional)
+
+The state manager is optional but highly recommended for better UX. It persists user preferences like:
+
+- Current page number
+- Items per page
+- Search query
+- Active filters
+- Sort settings
+- Column visibility
+
+Without state management, users lose their place when navigating away and back to a list.
+
+## Different API Patterns
+
+### REST API with Separate Count Endpoint
+
+```javascript
+async requestHandler(context) {
+  const { endpoint, page, perPage, search } = context
+  
+  const [items, countResponse] = await Promise.all([
+    axios.get(`/api/${endpoint}`, { params: { page, limit: perPage, search } }),
+    axios.get(`/api/${endpoint}/count`, { params: { search } })
+  ])
+  
+  return {
+    items: items.data,
+    count: countResponse.data.count
+  }
+}
+```
+
+### GraphQL API
+
+```javascript
+async requestHandler(context) {
+  const { endpoint, page, perPage, search } = context
+  
+  const response = await graphqlClient.query({
+    query: LIST_QUERY,
+    variables: {
+      offset: (page - 1) * perPage,
+      limit: perPage,
+      search
+    }
+  })
+  
+  return {
+    items: response.data.items,
+    count: response.data.count
+  }
+}
+```
+
+### Headers-Based Count
+
+```javascript
+async requestHandler(context) {
+  const { endpoint, page, perPage } = context
+  
+  const response = await axios.get(`/api/${endpoint}`, {
+    params: { page, limit: perPage }
+  })
+  
+  return {
+    items: response.data,
+    count: parseInt(response.headers['x-total-count'])
+  }
+}
+```
+
+## Next Steps
+
+Now that VueList is installed, build your first list:
+
+<Card title="Quick Start" icon="rocket" href="/quickstart">
+  Build your first list in 5 minutes
+</Card>

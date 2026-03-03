@@ -1,0 +1,153 @@
+---
+title: VueList - Simplified API-based List Rendering
+description: Build listing layouts faster by abstracting away the boilerplate of API calls, pagination, and state management for Vue 3
+---
+
+# VueList
+
+Simplified API-based list rendering for Vue 3. Build listing layouts faster by abstracting away the boilerplate of API calls, pagination, and state management.
+
+<CardGroup cols={2}>
+  <Card title="Headless Components" icon="cube">
+    Fully customizable UI with complete control over styling and markup. Use the default slots or build your own.
+  </Card>
+  <Card title="Centralized Request Handling" icon="server">
+    Configure your API logic once in the plugin. All list components use the same request handler.
+  </Card>
+  <Card title="Reactive State Management" icon="arrows-rotate">
+    Automatic state synchronization across pagination, search, filters, and sorting. No manual state management needed.
+  </Card>
+  <Card title="URL Sync & Persistence" icon="link">
+    Built-in URL query parameter sync for pagination and localStorage persistence to restore user's list state.
+  </Card>
+</CardGroup>
+
+## The Problem
+
+Listing pages are everywhere in web applications — users, products, orders, tasks. And every time you build one, you write the same boilerplate:
+
+- `page`, `perPage` state variables
+- `filters`, `search`, `sortBy` logic
+- `isLoading`, `data`, `error` handling
+- API calls with complex parameter management
+- URL synchronization for pagination
+- State persistence across page navigation
+
+**VueList eliminates this repetition.**
+
+## The Solution
+
+With VueList, you configure your API logic once and use declarative components to build any list:
+
+```vue
+<VueList endpoint="users" :per-page="10" pagination-mode="pagination">
+  <VueListSearch />
+  <VueListInitialLoader />
+  <VueListItems #default="{items}">
+    <UserCard v-for="user in items" :key="user.id" :user="user" />
+  </VueListItems>
+  <VueListPagination />
+</VueList>
+```
+
+No state variables. No API calls. No boilerplate. Just components.
+
+## Key Features
+
+### Headless Architecture
+
+VueList provides the logic and state management while giving you complete control over the UI. Every component accepts slots for full customization:
+
+```vue
+<VueListPagination v-slot="{ page, pagesCount, hasNext, hasPrev, next, prev }">
+  <button @click="prev" :disabled="!hasPrev">Previous</button>
+  <span>{{ page }} / {{ pagesCount }}</span>
+  <button @click="next" :disabled="!hasNext">Next</button>
+</VueListPagination>
+```
+
+### Multiple Pagination Modes
+
+- **Pagination**: Traditional page-based navigation
+- **Load More**: Infinite scroll or load-more button pattern
+
+### Rich Component Library
+
+Out-of-the-box components for common list operations:
+
+- `VueList` - Root component that manages state
+- `VueListItems` - Renders list items with slots
+- `VueListPagination` - Page-based navigation
+- `VueListLoadMore` - Load more / infinite scroll
+- `VueListSearch` - Debounced search input
+- `VueListPerPage` - Items per page selector
+- `VueListSummary` - Result count and range display
+- `VueListInitialLoader` - Loading state for first load
+- `VueListLoader` - Loading state for subsequent loads
+- `VueListError` - Error state display
+- `VueListEmpty` - Empty state when no results
+
+## Quick Example
+
+```vue
+<template>
+  <VueList endpoint="products" :per-page="12">
+    <div class="filters">
+      <VueListSearch placeholder="Search products..." />
+      <VueListPerPage :options="[12, 24, 48]" />
+    </div>
+    
+    <VueListInitialLoader>
+      <LoadingSpinner />
+    </VueListInitialLoader>
+    
+    <VueListError v-slot="{ error }">
+      <ErrorMessage :error="error" />
+    </VueListError>
+    
+    <VueListItems #default="{items}">
+      <div class="grid">
+        <ProductCard v-for="product in items" :key="product.id" :product="product" />
+      </div>
+    </VueListItems>
+    
+    <VueListEmpty>
+      <p>No products found</p>
+    </VueListEmpty>
+    
+    <VueListPagination />
+    <VueListSummary />
+  </VueList>
+</template>
+```
+
+## Why Choose VueList?
+
+<CardGroup cols={3}>
+  <Card title="Developer Experience" icon="code">
+    Write less code. Focus on your unique features instead of reinventing pagination logic.
+  </Card>
+  <Card title="Type Safe" icon="shield">
+    Built with TypeScript support for excellent autocomplete and type checking.
+  </Card>
+  <Card title="Production Ready" icon="rocket">
+    Battle-tested in production applications. Handles edge cases and provides excellent UX.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Why VueList?" icon="question" href="/why-vue-list">
+    Learn more about the problems VueList solves and when to use it
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install VueList in your Vue 3 project
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first list in 5 minutes
+  </Card>
+  <Card title="Components" icon="cube" href="/components/overview">
+    Explore all available components
+  </Card>
+</CardGroup>

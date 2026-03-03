@@ -1,0 +1,307 @@
+---
+title: Why VueList?
+description: Understand the problems VueList solves and when you should use it in your Vue 3 applications
+---
+
+# Why VueList?
+
+VueList eliminates the repetitive boilerplate required to build list and table interfaces that fetch data from APIs. If you've ever built a user list, product catalog, or data table in Vue, you know the pain.
+
+## The Problem: Repetitive Boilerplate
+
+Every API-based list requires the same setup:
+
+### State Management
+
+```javascript
+const page = ref(1)
+const perPage = ref(25)
+const search = ref('')
+const sortBy = ref('created_at')
+const sortOrder = ref('desc')
+const filters = ref({})
+const items = ref([])
+const count = ref(0)
+const isLoading = ref(false)
+const error = ref(null)
+```
+
+### API Request Logic
+
+```javascript
+const fetchData = async () => {
+  isLoading.value = true
+  error.value = null
+  
+  try {
+    const response = await axios.get('/api/users', {
+      params: {
+        page: page.value,
+        limit: perPage.value,
+        search: search.value,
+        sort_by: sortBy.value,
+        sort_order: sortOrder.value,
+        ...filters.value
+      }
+    })
+    
+    items.value = response.data.items
+    count.value = response.data.count
+  } catch (err) {
+    error.value = err
+  } finally {
+    isLoading.value = false
+  }
+}
+```
+
+### Watchers for Reactivity
+
+```javascript
+watch([page, perPage, search, filters, sortBy, sortOrder], () => {
+  fetchData()
+})
+
+watch(search, () => {
+  page.value = 1 // Reset to page 1 on search
+})
+```
+
+### URL Synchronization
+
+```javascript
+watch(page, (newPage) => {
+  router.push({
+    query: { ...route.query, page: newPage }
+  })
+})
+
+watch(() => route.query.page, (newPage) => {
+  if (newPage) page.value = Number(newPage)
+})
+```
+
+### State Persistence
+
+```javascript
+// Save state to localStorage
+const saveState = () => {
+  localStorage.setItem('users-list-state', JSON.stringify({
+    page: page.value,
+    perPage: perPage.value,
+    search: search.value,
+    filters: filters.value
+  }))
+}
+
+// Restore state on mount
+const restoreState = () => {
+  const saved = localStorage.getItem('users-list-state')
+  if (saved) {
+    const state = JSON.parse(saved)
+    page.value = state.page
+    perPage.value = state.perPage
+    search.value = state.search
+    filters.value = state.filters
+  }
+}
+```
+
+**That's 100+ lines of code before you even render your list.** And you need to write this for every single list in your application.
+
+## The Solution: VueList
+
+VueList reduces all that boilerplate to a simple component-based API:
+
+```vue
+<VueList endpoint="users" :per-page="25">
+  <VueListSearch />
+  <VueListItems #default="{items}">
+    <UserCard v-for="user in items" :key="user.id" :user="user" />
+  </VueListItems>
+  <VueListPagination />
+</VueList>
+```
+
+### What VueList Handles for You
+
+<Note>
+  VueList manages all the complex state, API logic, and synchronization so you can focus on building features.
+</Note>
+
+1. **State Management** - All list state (page, search, filters, loading, etc.) is managed internally
+2. **API Requests** - Configure once in the plugin, use everywhere
+3. **Reactive Updates** - Changes to search, filters, or pagination automatically trigger new requests
+4. **URL Synchronization** - Page numbers automatically sync with URL query parameters
+5. **State Persistence** - User's list state (page, filters, search) persists in localStorage
+6. **Loading States** - Separate states for initial load and subsequent loads
+7. **Error Handling** - Built-in error state management
+8. **Debouncing** - Search inputs are automatically debounced
+9. **Edge Cases** - Handles back button navigation, stale state cleanup, and more
+
+## Benefits
+
+### Write Less Code
+
+**Without VueList**: 100-150 lines of setup code per list
+**With VueList**: 20-30 lines of declarative components
+
+That's **80% less code** to maintain, test, and debug.
+
+### Consistency Across Lists
+
+When you have 20+ lists in your application, VueList ensures they all behave consistently:
+
+- Same pagination behavior
+- Same loading states
+- Same error handling
+- Same URL patterns
+- Same state persistence
+
+### Better User Experience
+
+<Tip>
+  VueList's built-in state management provides excellent UX features out of the box.
+</Tip>
+
+- **URL Sync**: Users can bookmark or share filtered/paginated results
+- **State Persistence**: Users return to the same page and filters they left
+- **Smart Loading**: Different loading states for initial vs subsequent loads
+- **Optimized Requests**: Automatic request deduplication and debouncing
+
+### Focus on What Matters
+
+Instead of writing pagination logic for the 50th time, you can focus on:
+
+- Building unique features
+- Designing better UIs
+- Improving performance
+- Solving business problems
+
+## When to Use VueList
+
+### Perfect For:
+
+- **Data Tables** - User lists, product catalogs, order history
+- **Search Results** - Any searchable/filterable content
+- **Admin Dashboards** - CRUD interfaces with pagination
+- **Product Listings** - E-commerce category pages
+- **Content Feeds** - Blog posts, articles, news feeds
+
+### Not Ideal For:
+
+- **Static Lists** - If your data doesn't come from an API
+- **Real-time Feeds** - WebSocket or SSE-based data streams
+- **Infinite Scroll Only** - If you need true infinite scroll without load more button (though VueList supports load-more mode)
+
+## Architecture: Centralized Request Handler
+
+One of VueList's key features is the centralized request handler. You configure how to make API requests **once** during plugin installation:
+
+```javascript
+import VueList from '@7span/vue-list'
+
+app.use(VueList, {
+  async requestHandler(context) {
+    const { endpoint, page, perPage, search, filters, sortBy, sortOrder } = context
+    
+    const response = await axios.get(`/api/${endpoint}`, {
+      params: { page, limit: perPage, search, sort_by: sortBy, sort_order: sortOrder }
+    })
+    
+    return {
+      items: response.data.items,
+      count: response.data.total
+    }
+  }
+})
+```
+
+Now every `VueList` component in your application uses this same request logic. Benefits:
+
+- **DRY**: Configure once, use everywhere
+- **Consistency**: All lists use the same API patterns
+- **Maintainability**: Update API logic in one place
+- **Flexibility**: Override per-component if needed
+
+## State Management Strategy
+
+VueList includes an optional state manager that persists user preferences:
+
+```javascript
+stateManager: {
+  init(context) {
+    // Clean up stale states when version changes
+    const key = `vue-list--${context.endpoint}--${context.version}`
+    const staleKeys = Object.keys(localStorage).filter(k => 
+      k.startsWith(`vue-list--${context.endpoint}--`) && k !== key
+    )
+    staleKeys.forEach(k => localStorage.removeItem(k))
+  },
+  
+  set(context) {
+    // Save current state
+    localStorage.setItem(key, JSON.stringify({
+      page: context.page,
+      perPage: context.perPage,
+      search: context.search,
+      filters: context.filters
+    }))
+  },
+  
+  get(context) {
+    // Restore saved state
+    return JSON.parse(localStorage.getItem(key))
+  }
+}
+```
+
+This means users get their exact page, filters, and search terms restored when they navigate back to a list.
+
+## Headless Architecture
+
+VueList is **headless** - it provides the logic and state management but doesn't dictate your UI:
+
+```vue
+<!-- Use default styling -->
+<VueListPagination />
+
+<!-- Or fully customize -->
+<VueListPagination v-slot="{ page, hasNext, next, prev }">
+  <MyCustomPagination 
+    :current="page" 
+    :hasNext="hasNext"
+    @next="next"
+    @prev="prev"
+  />
+</VueListPagination>
+```
+
+You get complete control over styling, markup, and behavior.
+
+## Real-World Impact
+
+### Time Savings
+
+- **Setup Time**: 2 hours → 10 minutes per list
+- **Maintenance**: Centralized logic means fewer bugs
+- **Onboarding**: New developers understand lists immediately
+
+### Code Quality
+
+- **Testability**: Test your request handler once, not 50 times
+- **Consistency**: All lists follow the same patterns
+- **Readability**: Declarative components are self-documenting
+
+## Next Steps
+
+Ready to eliminate list boilerplate?
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install VueList in your project
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first list in 5 minutes
+  </Card>
+</CardGroup>

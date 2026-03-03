@@ -1,0 +1,347 @@
+---
+title: VueList
+description: The root component that manages list state and data fetching
+---
+
+The `<VueList>` component is the foundation of the VueList system. It manages all list state (pagination, search, filters, sorting) and handles API requests through your configured `requestHandler`.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users" :per-page="20">
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+## Props
+
+<ParamField path="endpoint" type="string">
+  The API endpoint identifier. This value is passed to your `requestHandler` to determine which API to call.
+  
+  ```vue
+  <VueList endpoint="products" />
+  ```
+</ParamField>
+
+<ParamField path="meta" type="any" default="{}">
+  Additional data to pass to your `requestHandler`. Useful for passing extra parameters like tenant IDs, API versions, or custom headers.
+  
+  ```vue
+  <VueList 
+    endpoint="products" 
+    :meta="{ tenantId: 'acme-corp', apiVersion: 'v2' }" 
+  />
+  ```
+</ParamField>
+
+<ParamField path="filters" type="object">
+  Reactive filter object. When filters change, the list automatically resets to page 1 and refetches data. Use `v-model:filters` for two-way binding.
+  
+  ```vue
+  <VueList 
+    endpoint="products" 
+    v-model:filters="filters" 
+  />
+  
+  <script setup>
+  const filters = ref({ category: 'electronics', inStock: true })
+  </script>
+  ```
+</ParamField>
+
+<ParamField path="page" type="number" default="1">
+  Initial page number. This is only the starting value — the component manages its own internal `localPage` state.
+  
+  ```vue
+  <VueList endpoint="users" :page="3" />
+  ```
+</ParamField>
+
+<ParamField path="perPage" type="number" default="25">
+  Number of items to fetch per page. This is the initial value — the component manages its own internal `localPerPage` state.
+  
+  ```vue
+  <VueList endpoint="users" :per-page="50" />
+  ```
+</ParamField>
+
+<ParamField path="sortBy" type="string">
+  Initial column to sort by. The component manages its own internal `localSortBy` state.
+  
+  ```vue
+  <VueList endpoint="users" sort-by="created_at" />
+  ```
+</ParamField>
+
+<ParamField path="sortOrder" type="string" default="desc">
+  Initial sort direction: `asc` or `desc`. The component manages its own internal `localSortOrder` state.
+  
+  ```vue
+  <VueList endpoint="users" sort-order="asc" />
+  ```
+</ParamField>
+
+<ParamField path="search" type="string">
+  Initial search query. The component manages its own internal `localSearch` state.
+  
+  ```vue
+  <VueList endpoint="users" search="john" />
+  ```
+</ParamField>
+
+<ParamField path="attrs" type="array">
+  List of attributes/columns to display. Used with `<VueListAttributes>` for column visibility toggling.
+  
+  ```vue
+  <VueList 
+    endpoint="users" 
+    :attrs="['name', 'email', 'created_at']" 
+  />
+  ```
+</ParamField>
+
+<ParamField path="requestHandler" type="function">
+  Custom request handler for this specific list. Overrides the global `requestHandler` configured during plugin setup.
+  
+  ```vue
+  <VueList 
+    endpoint="users" 
+    :request-handler="customHandler" 
+  />
+  
+  <script setup>
+  const customHandler = async (context) => {
+    const response = await fetch(`/api/${context.endpoint}`)
+    const data = await response.json()
+    return { items: data.results, count: data.total }
+  }
+  </script>
+  ```
+</ParamField>
+
+<ParamField path="version" type="string | number" default="1">
+  Version identifier for state management. Increment this when you make breaking changes to your list configuration. The state manager uses this to invalidate stale cached states.
+  
+  ```vue
+  <VueList endpoint="users" :version="2" />
+  ```
+</ParamField>
+
+<ParamField path="hasPaginationHistory" type="boolean" default="true">
+  Whether to sync the current page number to the URL query string. When enabled, the page number appears as `?page=2` in the URL.
+  
+  ```vue
+  <VueList endpoint="users" :has-pagination-history="false" />
+  ```
+</ParamField>
+
+<ParamField path="paginationMode" type="string" default="pagination">
+  Pagination mode: `pagination` (page numbers) or `loadMore` (infinite scroll button).
+  
+  ```vue
+  <VueList endpoint="products" pagination-mode="loadMore" />
+  ```
+</ParamField>
+
+## Events
+
+<ParamField path="onItemSelect" type="(newSelection, oldSelection) => void">
+  Emitted when the selection changes. Receives the new and old selection arrays.
+  
+  ```vue
+  <VueList 
+    endpoint="users" 
+    @on-item-select="handleSelection" 
+  />
+  ```
+</ParamField>
+
+<ParamField path="onResponse" type="(response) => void">
+  Emitted after every successful API response. Receives the full response object.
+  
+  ```vue
+  <VueList 
+    endpoint="users" 
+    @on-response="logResponse" 
+  />
+  ```
+</ParamField>
+
+<ParamField path="afterPageChange" type="(response) => void">
+  Emitted after page changes (only in `pagination` mode).
+  
+  ```vue
+  <VueList 
+    endpoint="users" 
+    @after-page-change="trackPageView" 
+  />
+  ```
+</ParamField>
+
+<ParamField path="afterLoadMore" type="(response) => void">
+  Emitted after loading more items (only in `loadMore` mode).
+  
+  ```vue
+  <VueList 
+    endpoint="users" 
+    pagination-mode="loadMore"
+    @after-load-more="trackLoadMore" 
+  />
+  ```
+</ParamField>
+
+## Slot props
+
+The default slot receives a scope object with the current list state:
+
+```vue
+<VueList endpoint="users" #default="scope">
+  <p>Total: {{ scope.count }}</p>
+  <p>Loading: {{ scope.isLoading }}</p>
+  <button @click="scope.refresh()">Refresh</button>
+</VueList>
+```
+
+### Available scope properties
+
+- `items` - Array of data items
+- `count` - Total count from API
+- `response` - Full API response object
+- `isLoading` - True during data fetch
+- `isInitialLoading` - True only during first load
+- `selection` - Array of selected items
+- `error` - Error object if request failed
+- `serializedAttrs` - Processed attributes array
+- `isEmpty` - True if no items exist
+- `context` - Full context object passed to requestHandler
+- `refresh()` - Method to refresh data
+
+## Exposed methods
+
+Access these methods via template refs:
+
+```vue
+<template>
+  <VueList ref="listRef" endpoint="users" />
+  <button @click="listRef.refresh()">Refresh</button>
+  <button @click="listRef.setPage(1)">Go to page 1</button>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+const listRef = ref()
+</script>
+```
+
+### Methods
+
+- `setPage(pageNumber)` - Navigate to a specific page
+- `setPerPage(count)` - Change items per page
+- `setSort({ by, order })` - Update sorting
+- `setSearch(query)` - Update search query
+- `setSelection(items)` - Update selected items
+- `refresh()` - Refresh current data
+- `loadMore()` - Load next page (loadMore mode only)
+
+### Exposed state
+
+- `items` - Ref to current items array
+- `response` - Ref to last API response
+- `isLoading` - Ref to loading state
+- `error` - Ref to error object
+- `count` - Ref to total count
+- `selection` - Ref to selected items
+
+## Complete example
+
+```vue
+<template>
+  <VueList
+    ref="listRef"
+    endpoint="products"
+    :per-page="20"
+    :version="2"
+    pagination-mode="pagination"
+    v-model:filters="filters"
+    sort-by="created_at"
+    sort-order="desc"
+    @on-response="handleResponse"
+    @after-page-change="trackPageChange"
+  >
+    <template #default="{ count, isEmpty, refresh }">
+      <div class="list-container">
+        <div class="list-header">
+          <h2>Products ({{ count }})</h2>
+          <button @click="refresh()">Refresh</button>
+        </div>
+
+        <VueListSearch />
+        <VueListPerPage :options="[10, 20, 50, 100]" />
+
+        <VueListInitialLoader>
+          <div class="skeleton">Loading products...</div>
+        </VueListInitialLoader>
+
+        <VueListError #default="{ error }">
+          <div class="error-box">{{ error.message }}</div>
+        </VueListError>
+
+        <VueListItems #default="{ items }">
+          <div class="product-grid">
+            <div v-for="product in items" :key="product.id" class="product-card">
+              <h3>{{ product.name }}</h3>
+              <p>{{ product.price }}</p>
+            </div>
+          </div>
+        </VueListItems>
+
+        <VueListEmpty>
+          <p>No products found</p>
+        </VueListEmpty>
+
+        <VueListLoader>
+          <div class="spinner">Loading...</div>
+        </VueListLoader>
+
+        <VueListPagination :page-links="7" />
+        <VueListSummary />
+      </div>
+    </template>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref()
+const filters = ref({
+  category: 'electronics',
+  inStock: true
+})
+
+function handleResponse(response) {
+  console.log('Received', response.items.length, 'items')
+}
+
+function trackPageChange(response) {
+  console.log('Page changed, showing items:', response.items.length)
+}
+</script>
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="VueListItems" icon="table" href="/components/items">
+    Learn how to render list items
+  </Card>
+  <Card title="Request handler" icon="code" href="/configuration/request-handler">
+    Configure how API requests are made
+  </Card>
+</CardGroup>

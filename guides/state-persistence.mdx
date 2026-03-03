@@ -1,0 +1,527 @@
+---
+title: State Persistence
+description: Learn how to persist list state across page refreshes and navigation
+---
+
+## Overview
+
+By default, VueList state (page number, filters, search, sort) resets when the user refreshes the page or navigates away and back. The `stateManager` option lets you persist this state so users can pick up exactly where they left off.
+
+## How State Persistence Works
+
+VueList provides three lifecycle hooks for state management:
+
+1. **`init(context)`** - Called once when the component mounts
+2. **`get(context)`** - Called to retrieve saved state
+3. **`set(context)`** - Called whenever state changes
+
+You implement these methods to tell VueList where and how to store state.
+
+## Basic Setup with localStorage
+
+The most common approach is using `localStorage`:
+
+```js main.js
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  requestHandler(context) {
+    // Your request handler
+  },
+  
+  stateManager: {
+    set(context) {
+      const key = `vuelist_${context.endpoint}_v${context.version}`
+      const state = {
+        page: context.page,
+        perPage: context.perPage,
+        search: context.search,
+        sortBy: context.sortBy,
+        sortOrder: context.sortOrder,
+        filters: context.filters,
+        attrSettings: context.attrSettings
+      }
+      localStorage.setItem(key, JSON.stringify(state))
+    },
+    
+    get(context) {
+      const key = `vuelist_${context.endpoint}_v${context.version}`
+      const saved = localStorage.getItem(key)
+      return saved ? JSON.parse(saved) : null
+    },
+    
+    init(context) {
+      // Optional: cleanup old versions
+      const currentKey = `vuelist_${context.endpoint}_v${context.version}`
+      
+      // Remove any keys for this endpoint with different versions
+      Object.keys(localStorage)
+        .filter(key => 
+          key.startsWith(`vuelist_${context.endpoint}_v`) && 
+          key !== currentKey
+        )
+        .forEach(key => localStorage.removeItem(key))
+    }
+  }
+})
+
+app.mount('#app')
+```
+
+<Note>
+  The `context` object contains `endpoint` and `version` which you can use to create unique storage keys for different lists.
+</Note>
+
+## What Gets Persisted
+
+The context object passed to `set()` and `get()` contains:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `endpoint` | String | The unique identifier for this list |
+| `version` | String/Number | Version number for cache invalidation |
+| `page` | Number | Current page number |
+| `perPage` | Number | Items per page |
+| `search` | String | Current search query |
+| `sortBy` | String | Sort field |
+| `sortOrder` | String | Sort direction ("asc" or "desc") |
+| `filters` | Object | Filter values |
+| `attrSettings` | Object | Attribute visibility settings |
+
+## Using Versions for Cache Invalidation
+
+When you update your list configuration (add new filters, change defaults, etc.), you may want to invalidate old saved state. Use the `version` prop:
+
+```vue
+<template>
+  <!-- Increment version when you change the list config -->
+  <VueList 
+    endpoint="products"
+    version="2"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+```
+
+When the version changes, the `init()` method can clean up old state:
+
+```js
+init(context) {
+  const currentKey = `vuelist_${context.endpoint}_v${context.version}`
+  
+  // Remove old versions
+  Object.keys(localStorage)
+    .filter(key => 
+      key.startsWith(`vuelist_${context.endpoint}_`) && 
+      key !== currentKey
+    )
+    .forEach(key => localStorage.removeItem(key))
+}
+```
+
+## sessionStorage Instead of localStorage
+
+For state that should only persist during the browser session:
+
+```js
+app.use(VueList, {
+  stateManager: {
+    set(context) {
+      const key = `vuelist_${context.endpoint}`
+      sessionStorage.setItem(key, JSON.stringify(context))
+    },
+    
+    get(context) {
+      const key = `vuelist_${context.endpoint}`
+      const saved = sessionStorage.getItem(key)
+      return saved ? JSON.parse(saved) : null
+    },
+    
+    init() {}
+  }
+})
+```
+
+## Storing State in Vuex/Pinia
+
+You can integrate with your state management library:
+
+<Tabs>
+  <Tab title="Pinia">
+    ```js stores/vuelist.js
+    import { defineStore } from 'pinia'
+
+    export const useVueListStore = defineStore('vuelist', {
+      state: () => ({
+        lists: {}
+      }),
+      
+      actions: {
+        setState(endpoint, context) {
+          this.lists[endpoint] = context
+        },
+        
+        getState(endpoint) {
+          return this.lists[endpoint] || null
+        },
+        
+        clearState(endpoint) {
+          delete this.lists[endpoint]
+        }
+      }
+    })
+    ```
+
+    ```js main.js
+    import { createPinia } from 'pinia'
+    import { useVueListStore } from './stores/vuelist'
+
+    const pinia = createPinia()
+    app.use(pinia)
+
+    app.use(VueList, {
+      stateManager: {
+        set(context) {
+          const store = useVueListStore()
+          store.setState(context.endpoint, {
+            page: context.page,
+            perPage: context.perPage,
+            search: context.search,
+            sortBy: context.sortBy,
+            sortOrder: context.sortOrder,
+            filters: context.filters
+          })
+        },
+        
+        get(context) {
+          const store = useVueListStore()
+          return store.getState(context.endpoint)
+        },
+        
+        init() {}
+      }
+    })
+    ```
+  </Tab>
+
+  <Tab title="Vuex">
+    ```js store/modules/vuelist.js
+    export default {
+      namespaced: true,
+      
+      state: {
+        lists: {}
+      },
+      
+      mutations: {
+        SET_STATE(state, { endpoint, context }) {
+          state.lists[endpoint] = context
+        }
+      },
+      
+      actions: {
+        setState({ commit }, { endpoint, context }) {
+          commit('SET_STATE', { endpoint, context })
+        }
+      },
+      
+      getters: {
+        getState: (state) => (endpoint) => {
+          return state.lists[endpoint] || null
+        }
+      }
+    }
+    ```
+
+    ```js main.js
+    import { createStore } from 'vuex'
+    import vuelist from './store/modules/vuelist'
+
+    const store = createStore({
+      modules: {
+        vuelist
+      }
+    })
+
+    app.use(store)
+
+    app.use(VueList, {
+      stateManager: {
+        set(context) {
+          store.dispatch('vuelist/setState', {
+            endpoint: context.endpoint,
+            context: {
+              page: context.page,
+              perPage: context.perPage,
+              search: context.search,
+              sortBy: context.sortBy,
+              sortOrder: context.sortOrder,
+              filters: context.filters
+            }
+          })
+        },
+        
+        get(context) {
+          return store.getters['vuelist/getState'](context.endpoint)
+        },
+        
+        init() {}
+      }
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Persisting to an API
+
+For user-specific state that persists across devices:
+
+```js main.js
+import axios from 'axios'
+
+app.use(VueList, {
+  stateManager: {
+    async set(context) {
+      const state = {
+        page: context.page,
+        perPage: context.perPage,
+        search: context.search,
+        sortBy: context.sortBy,
+        sortOrder: context.sortOrder,
+        filters: context.filters
+      }
+      
+      try {
+        await axios.post('/api/user/list-state', {
+          endpoint: context.endpoint,
+          version: context.version,
+          state
+        })
+      } catch (error) {
+        console.error('Failed to save list state:', error)
+      }
+    },
+    
+    async get(context) {
+      try {
+        const response = await axios.get('/api/user/list-state', {
+          params: {
+            endpoint: context.endpoint,
+            version: context.version
+          }
+        })
+        return response.data.state
+      } catch (error) {
+        console.error('Failed to load list state:', error)
+        return null
+      }
+    },
+    
+    init() {}
+  }
+})
+```
+
+<Warning>
+  When using async operations in `stateManager`, be aware that `set()` is called on every state change. Consider debouncing or throttling API calls to avoid excessive requests.
+</Warning>
+
+## Selective Persistence
+
+You might not want to persist everything. For example, you might want to persist filters but not the current page:
+
+```js
+stateManager: {
+  set(context) {
+    const key = `vuelist_${context.endpoint}`
+    const state = {
+      // Persist these
+      perPage: context.perPage,
+      search: context.search,
+      sortBy: context.sortBy,
+      sortOrder: context.sortOrder,
+      filters: context.filters,
+      // Don't persist page - always start at page 1
+    }
+    localStorage.setItem(key, JSON.stringify(state))
+  },
+  
+  get(context) {
+    const key = `vuelist_${context.endpoint}`
+    const saved = localStorage.getItem(key)
+    if (!saved) return null
+    
+    const state = JSON.parse(saved)
+    // Always start at page 1
+    return { ...state, page: 1 }
+  },
+  
+  init() {}
+}
+```
+
+## Per-Endpoint Configuration
+
+If you want different persistence strategies for different lists, you can check the endpoint:
+
+```js
+stateManager: {
+  set(context) {
+    // Only persist state for specific endpoints
+    if (context.endpoint === 'admin/users' || context.endpoint === 'reports') {
+      const key = `vuelist_${context.endpoint}`
+      localStorage.setItem(key, JSON.stringify(context))
+    }
+  },
+  
+  get(context) {
+    if (context.endpoint === 'admin/users' || context.endpoint === 'reports') {
+      const key = `vuelist_${context.endpoint}`
+      const saved = localStorage.getItem(key)
+      return saved ? JSON.parse(saved) : null
+    }
+    return null
+  },
+  
+  init() {}
+}
+```
+
+## Debugging State Persistence
+
+To see what's being saved and loaded:
+
+```js
+stateManager: {
+  set(context) {
+    console.log('Saving state for', context.endpoint, context)
+    const key = `vuelist_${context.endpoint}`
+    localStorage.setItem(key, JSON.stringify(context))
+  },
+  
+  get(context) {
+    const key = `vuelist_${context.endpoint}`
+    const saved = localStorage.getItem(key)
+    const state = saved ? JSON.parse(saved) : null
+    console.log('Loading state for', context.endpoint, state)
+    return state
+  },
+  
+  init(context) {
+    console.log('Initializing state manager for', context.endpoint, 'v' + context.version)
+  }
+}
+```
+
+## Complete Example
+
+Here's a complete example with localStorage, version management, and selective persistence:
+
+```js main.js
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import axios from 'axios'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  requestHandler(context) {
+    return axios
+      .get(`/api/${context.endpoint}`, {
+        params: {
+          page: context.page,
+          limit: context.perPage,
+          search: context.search,
+          sort_by: context.sortBy,
+          sort_order: context.sortOrder,
+          ...context.filters
+        }
+      })
+      .then(({ data }) => ({
+        items: data.results,
+        count: data.total
+      }))
+  },
+  
+  stateManager: {
+    set(context) {
+      const key = `vuelist_${context.endpoint}_v${context.version}`
+      
+      // Only save the state we want to persist
+      const state = {
+        perPage: context.perPage,
+        search: context.search,
+        sortBy: context.sortBy,
+        sortOrder: context.sortOrder,
+        filters: context.filters,
+        attrSettings: context.attrSettings,
+        // Note: Not saving page - users start at page 1 on return
+        savedAt: new Date().toISOString()
+      }
+      
+      try {
+        localStorage.setItem(key, JSON.stringify(state))
+      } catch (error) {
+        console.error('Failed to save list state:', error)
+      }
+    },
+    
+    get(context) {
+      const key = `vuelist_${context.endpoint}_v${context.version}`
+      
+      try {
+        const saved = localStorage.getItem(key)
+        if (!saved) return null
+        
+        const state = JSON.parse(saved)
+        
+        // Optionally: expire old state (e.g., after 7 days)
+        if (state.savedAt) {
+          const savedDate = new Date(state.savedAt)
+          const daysSince = (Date.now() - savedDate.getTime()) / (1000 * 60 * 60 * 24)
+          if (daysSince > 7) {
+            localStorage.removeItem(key)
+            return null
+          }
+        }
+        
+        return state
+      } catch (error) {
+        console.error('Failed to load list state:', error)
+        return null
+      }
+    },
+    
+    init(context) {
+      const currentKey = `vuelist_${context.endpoint}_v${context.version}`
+      
+      // Clean up old versions for this endpoint
+      try {
+        Object.keys(localStorage)
+          .filter(key => 
+            key.startsWith(`vuelist_${context.endpoint}_v`) && 
+            key !== currentKey
+          )
+          .forEach(key => {
+            console.log('Removing old state:', key)
+            localStorage.removeItem(key)
+          })
+      } catch (error) {
+        console.error('Failed to clean up old state:', error)
+      }
+    }
+  }
+})
+
+app.mount('#app')
+```
+
+<Tip>
+  Remember to increment the `version` prop on your `<VueList>` components whenever you make breaking changes to the list configuration. This ensures users don't load incompatible saved state.
+</Tip>

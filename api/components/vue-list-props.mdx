@@ -1,0 +1,448 @@
+---
+title: 'VueList Props'
+description: 'Props for the main VueList component'
+---
+
+The `VueList` component is the main container that manages state, data fetching, and provides context to all child components.
+
+## Props
+
+<ParamField path="endpoint" type="string">
+  API endpoint URL for fetching data. This is passed to the request handler as part of the context.
+  
+  ```vue
+  <VueList endpoint="/api/users">
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="meta" type="any">
+  Additional request payload to include with every request. The request handler will receive this in the context object.
+  
+  ```vue
+  <VueList 
+    endpoint="/api/users"
+    :meta="{ teamId: 123, includeInactive: false }"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="filters" type="object">
+  Filter object that is reactive. Use `v-model:filters` for two-way binding. When filters change, the list automatically refetches data and resets to page 1.
+  
+  ```vue
+  <script setup>
+  import { ref } from 'vue'
+  
+  const filters = ref({
+    status: 'active',
+    role: null
+  })
+  </script>
+  
+  <template>
+    <VueList 
+      endpoint="/api/users"
+      v-model:filters="filters"
+    >
+      <!-- ... -->
+    </VueList>
+  </template>
+  ```
+</ParamField>
+
+<ParamField path="page" type="number" default="1">
+  Initial page number to load. This is only the initial value - the actual page state is managed internally by the component.
+  
+  ```vue
+  <VueList endpoint="/api/users" :page="2">
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="perPage" type="number" default="25">
+  Number of items to fetch per page. This is the initial value - the actual state is managed internally.
+  
+  ```vue
+  <VueList endpoint="/api/users" :per-page="50">
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="sortBy" type="string">
+  Column/field name to sort by initially. The actual sort state is managed internally.
+  
+  ```vue
+  <VueList endpoint="/api/users" sort-by="created_at">
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="sortOrder" type="'asc' | 'desc'" default="'desc'">
+  Initial sort direction. Must be either `'asc'` (ascending) or `'desc'` (descending).
+  
+  ```vue
+  <VueList 
+    endpoint="/api/users" 
+    sort-by="name"
+    sort-order="asc"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="search" type="string">
+  Initial search query. The actual search state is managed internally.
+  
+  ```vue
+  <VueList endpoint="/api/users" search="john">
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="attrs" type="array">
+  List of attribute names to display in the list. Can be an array of strings or objects. If not provided, keys from the first response item will be used.
+  
+  ```vue
+  <!-- Simple array of strings -->
+  <VueList 
+    endpoint="/api/users"
+    :attrs="['name', 'email', 'created_at']"
+  >
+    <!-- ... -->
+  </VueList>
+  
+  <!-- Array of objects for more control -->
+  <VueList 
+    endpoint="/api/users"
+    :attrs="[
+      { name: 'name', label: 'Full Name' },
+      { name: 'email', label: 'Email Address' },
+      { 
+        name: 'address',
+        label: 'Address',
+        attrs: ['street', 'city', 'zip']
+      }
+    ]"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+  
+  <Expandable title="Attribute Object Structure">
+    When using objects in the `attrs` array:
+    
+    - `name` (string, required): The field name
+    - `label` (string): Display label (auto-generated if not provided)
+    - `attrs` (array): Nested attributes for complex objects
+  </Expandable>
+</ParamField>
+
+<ParamField path="requestHandler" type="function">
+  Custom request handler function for this specific list. Overrides the global request handler defined in plugin options.
+  
+  ```vue
+  <script setup>
+  const customRequestHandler = async (requestData) => {
+    const response = await fetch('/api/custom-endpoint', {
+      method: 'POST',
+      body: JSON.stringify(requestData)
+    })
+    const data = await response.json()
+    return {
+      items: data.results,
+      count: data.totalCount
+    }
+  }
+  </script>
+  
+  <template>
+    <VueList 
+      endpoint="/api/users"
+      :request-handler="customRequestHandler"
+    >
+      <!-- ... -->
+    </VueList>
+  </template>
+  ```
+</ParamField>
+
+<ParamField path="version" type="string | number" default="1">
+  Version identifier for the list configuration. Used by the state manager to identify when configuration changes and clean up stale states.
+  
+  ```vue
+  <VueList 
+    endpoint="/api/users"
+    :version="2"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+  
+  <Note>
+    Increment the version number when you make significant changes to the list configuration, such as changing filters or attributes.
+  </Note>
+</ParamField>
+
+<ParamField path="hasPaginationHistory" type="boolean" default="true">
+  Enable pagination history in the URL. When enabled, the current page number is added to the URL as a query parameter.
+  
+  ```vue
+  <!-- URL will include ?page=2, ?page=3, etc. -->
+  <VueList 
+    endpoint="/api/users"
+    :has-pagination-history="true"
+  >
+    <!-- ... -->
+  </VueList>
+  
+  <!-- URL won't change -->
+  <VueList 
+    endpoint="/api/users"
+    :has-pagination-history="false"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="paginationMode" type="'pagination' | 'loadMore'" default="'pagination'">
+  Pagination mode to use:
+  
+  - `'pagination'`: Standard pagination with page numbers
+  - `'loadMore'`: Load more button that appends items to the existing list
+  
+  ```vue
+  <!-- Standard pagination -->
+  <VueList 
+    endpoint="/api/users"
+    pagination-mode="pagination"
+  >
+    <VueListPagination />
+  </VueList>
+  
+  <!-- Load more mode -->
+  <VueList 
+    endpoint="/api/posts"
+    pagination-mode="loadMore"
+  >
+    <VueListLoadMore />
+  </VueList>
+  ```
+</ParamField>
+
+## Events
+
+<ParamField path="@onItemSelect" type="(newSelection: array, oldSelection: array) => void">
+  Emitted when the selection changes.
+  
+  ```vue
+  <VueList 
+    endpoint="/api/users"
+    @on-item-select="(newSel, oldSel) => {
+      console.log('Selected:', newSel)
+    }"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="@onResponse" type="(response: object) => void">
+  Emitted when a response is received from the API, before items are set.
+  
+  ```vue
+  <VueList 
+    endpoint="/api/users"
+    @on-response="(response) => {
+      console.log('Received:', response)
+    }"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="@afterPageChange" type="(response: object) => void">
+  Emitted after a page change in pagination mode (not in loadMore mode).
+  
+  ```vue
+  <VueList 
+    endpoint="/api/users"
+    @after-page-change="(response) => {
+      console.log('Page changed:', response)
+    }"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+<ParamField path="@afterLoadMore" type="(response: object) => void">
+  Emitted after loading more items in loadMore mode.
+  
+  ```vue
+  <VueList 
+    endpoint="/api/posts"
+    pagination-mode="loadMore"
+    @after-load-more="(response) => {
+      console.log('Loaded more:', response)
+    }"
+  >
+    <!-- ... -->
+  </VueList>
+  ```
+</ParamField>
+
+## Slot Props
+
+The default slot receives a scope object with all the list state and methods:
+
+```vue
+<VueList endpoint="/api/users" v-slot="{ items, count, isLoading, refresh }">
+  <div>
+    <p>Total: {{ count }}</p>
+    <p v-if="isLoading">Loading...</p>
+    
+    <div v-for="item in items" :key="item.id">
+      {{ item.name }}
+    </div>
+    
+    <button @click="refresh">Refresh</button>
+  </div>
+</VueList>
+```
+
+<Expandable title="Available Slot Props">
+  <ResponseField name="items" type="array">
+    Current array of items
+  </ResponseField>
+  
+  <ResponseField name="count" type="number">
+    Total count of items
+  </ResponseField>
+  
+  <ResponseField name="response" type="object">
+    Full response object from the API
+  </ResponseField>
+  
+  <ResponseField name="isLoading" type="boolean">
+    Whether data is currently being fetched
+  </ResponseField>
+  
+  <ResponseField name="isInitialLoading" type="boolean">
+    Whether this is the initial load
+  </ResponseField>
+  
+  <ResponseField name="selection" type="array">
+    Currently selected items
+  </ResponseField>
+  
+  <ResponseField name="error" type="any">
+    Error object if request failed
+  </ResponseField>
+  
+  <ResponseField name="serializedAttrs" type="array">
+    Processed attributes with labels
+  </ResponseField>
+  
+  <ResponseField name="isEmpty" type="boolean">
+    Whether the items array is empty
+  </ResponseField>
+  
+  <ResponseField name="context" type="object">
+    Current context object
+  </ResponseField>
+  
+  <ResponseField name="refresh" type="function">
+    Function to refresh the list data
+  </ResponseField>
+</Expandable>
+
+## Exposed Methods
+
+The component exposes methods via template refs:
+
+```vue
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref()
+
+function goToPage3() {
+  listRef.value.setPage(3)
+}
+
+function refreshList() {
+  listRef.value.refresh()
+}
+</script>
+
+<template>
+  <VueList ref="listRef" endpoint="/api/users">
+    <!-- ... -->
+  </VueList>
+</template>
+```
+
+<Expandable title="Exposed Methods and State">
+  <ResponseField name="items" type="ref<array>">
+    Reactive reference to items array
+  </ResponseField>
+  
+  <ResponseField name="response" type="ref<object>">
+    Reactive reference to API response
+  </ResponseField>
+  
+  <ResponseField name="isLoading" type="ref<boolean>">
+    Reactive reference to loading state
+  </ResponseField>
+  
+  <ResponseField name="error" type="ref<any>">
+    Reactive reference to error state
+  </ResponseField>
+  
+  <ResponseField name="count" type="ref<number>">
+    Reactive reference to total count
+  </ResponseField>
+  
+  <ResponseField name="selection" type="ref<array>">
+    Reactive reference to selection
+  </ResponseField>
+  
+  <ResponseField name="setPage" type="(page: number) => void">
+    Navigate to a specific page
+  </ResponseField>
+  
+  <ResponseField name="setPerPage" type="(perPage: number) => void">
+    Change items per page
+  </ResponseField>
+  
+  <ResponseField name="setSort" type="({ by: string, order: string }) => void">
+    Change sort configuration
+  </ResponseField>
+  
+  <ResponseField name="setSearch" type="(query: string) => void">
+    Update search query
+  </ResponseField>
+  
+  <ResponseField name="setSelection" type="(items: array) => void">
+    Update selected items
+  </ResponseField>
+  
+  <ResponseField name="refresh" type="(context?: object) => void">
+    Refresh the current page data
+  </ResponseField>
+  
+  <ResponseField name="loadMore" type="() => void">
+    Load more items (only in loadMore mode)
+  </ResponseField>
+</Expandable>

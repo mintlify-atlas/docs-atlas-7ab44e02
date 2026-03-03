@@ -1,0 +1,545 @@
+---
+title: Plugin Options
+description: Complete reference for all VueList plugin configuration options
+---
+
+## Overview
+
+When installing VueList with `app.use()`, you can pass an options object to customize its behavior. This page documents all available configuration options.
+
+```js main.js
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  // Configuration options go here
+  componentPrefix: '',
+  requestHandler: (context) => { /* ... */ },
+  stateManager: { /* ... */ }
+})
+
+app.mount('#app')
+```
+
+## Options Reference
+
+### componentPrefix
+
+<ParamField path="componentPrefix" type="string" default="''">
+  Prefix to add to all globally registered VueList components
+</ParamField>
+
+Use this to avoid naming conflicts or follow your app's naming conventions.
+
+**Default value:**
+```js
+componentPrefix: ''
+```
+
+**Example:**
+
+<CodeGroup>
+
+```js Without Prefix (default)
+app.use(VueList, {
+  componentPrefix: ''
+})
+
+// Components available as:
+// <VueList>
+// <VueListItems>
+// <VueListPagination>
+// etc.
+```
+
+```js With Prefix
+app.use(VueList, {
+  componentPrefix: 'My'
+})
+
+// Components available as:
+// <MyVueList>
+// <MyVueListItems>
+// <MyVueListPagination>
+// etc.
+```
+
+```vue Usage Example
+<template>
+  <MyVueList endpoint="users">
+    <MyVueListItems />
+    <MyVueListPagination />
+  </MyVueList>
+</template>
+```
+
+</CodeGroup>
+
+<Note>
+  The prefix is applied to **all** VueList components. Make sure to use the prefixed names consistently throughout your app.
+</Note>
+
+### Registered Components
+
+With or without a prefix, the following components are registered:
+
+| Base Name | With Prefix `"My"` | Purpose |
+|-----------|-------------------|----------|
+| `VueList` | `MyVueList` | Main container component |
+| `VueListInitialLoader` | `MyVueListInitialLoader` | Loading state on first load |
+| `VueListLoader` | `MyVueListLoader` | Loading state during fetches |
+| `VueListItems` | `MyVueListItems` | Renders list items |
+| `VueListError` | `MyVueListError` | Error display |
+| `VueListPagination` | `MyVueListPagination` | Pagination controls |
+| `VueListSummary` | `MyVueListSummary` | "Showing X to Y of Z" |
+| `VueListPerPage` | `MyVueListPerPage` | Per-page selector |
+| `VueListSearch` | `MyVueListSearch` | Search input |
+| `VueListLoadMore` | `MyVueListLoadMore` | Load more button |
+| `VueListGoTo` | `MyVueListGoTo` | Go to page input |
+| `VueListRefresh` | `MyVueListRefresh` | Refresh button |
+| `VueListAttributes` | `MyVueListAttributes` | Column visibility |
+| `VueListEmpty` | `MyVueListEmpty` | Empty state |
+
+---
+
+### requestHandler
+
+<ParamField path="requestHandler" type="function" required>
+  The global function used to fetch data for all lists. Receives context object, returns Promise resolving to `{ items, count }`
+</ParamField>
+
+This is the most important configuration option - it defines how VueList fetches data from your API.
+
+**Default value:**
+```js
+requestHandler() {
+  return new Promise((resolve) => {
+    resolve({
+      items: [],
+      count: 0
+    })
+  })
+}
+```
+
+**Type signature:**
+```ts
+type RequestHandler = (context: {
+  endpoint: string
+  page: number
+  perPage: number
+  search: string
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+  filters: object
+  meta: any
+  version: string | number
+  attrSettings: object
+  isRefresh: boolean
+}) => Promise<{
+  items: any[]
+  count: number
+}>
+```
+
+**Example:**
+
+<CodeGroup>
+
+```js Basic Example
+import axios from 'axios'
+
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, search, sortBy, sortOrder, filters } = context
+    
+    return axios
+      .get(`/api/${endpoint}`, {
+        params: {
+          page,
+          limit: perPage,
+          search,
+          sort: sortBy,
+          order: sortOrder,
+          ...filters
+        }
+      })
+      .then(({ data }) => ({
+        items: data.results,
+        count: data.total
+      }))
+  }
+})
+```
+
+```js Advanced Example
+import { ofetch } from 'ofetch'
+
+app.use(VueList, {
+  async requestHandler(context) {
+    const { endpoint, page, perPage, search, sortBy, sortOrder, isRefresh } = context
+
+    // Build sort parameter
+    let sort
+    if (sortBy && sortOrder) {
+      sort = (sortOrder === 'asc' ? '-' : '') + sortBy
+    }
+
+    // Parallel requests for count and data
+    const [count, items] = await Promise.all([
+      ofetch(`/api/${endpoint}/count`),
+      ofetch(`/api/${endpoint}`, {
+        params: { page, limit: perPage, search, sort },
+        cache: isRefresh ? 'no-cache' : 'default'
+      })
+    ])
+
+    return { items, count }
+  }
+})
+```
+
+```js With Error Handling
+import axios from 'axios'
+
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage } = context
+    
+    return axios
+      .get(`/api/${endpoint}`, { params: { page, limit: perPage } })
+      .then(({ data }) => ({
+        items: data.items,
+        count: data.count
+      }))
+      .catch((error) => {
+        console.error('Request failed:', error)
+        const err = new Error('Failed to fetch data')
+        err.name = 'NetworkError'
+        throw err // Must re-throw for VueList to handle
+      })
+  }
+})
+```
+
+</CodeGroup>
+
+<Warning>
+  The `requestHandler` **must** return a Promise that resolves to an object with `items` (array) and `count` (number). If your API uses different property names, map them in the handler.
+</Warning>
+
+**Per-Component Override:**
+
+Individual components can override the global `requestHandler`:
+
+```vue
+<template>
+  <VueList 
+    endpoint="special" 
+    :request-handler="customHandler"
+  >
+    <!-- ... -->
+  </VueList>
+</template>
+
+<script setup>
+const customHandler = async (context) => {
+  // Custom logic for this list only
+  return { items: [], count: 0 }
+}
+</script>
+```
+
+**See also:**
+- [Request Handler Guide](/configuration/request-handler) - Complete documentation with examples
+- [Context Object](/configuration/context-object) - All properties available in context
+
+---
+
+### stateManager
+
+<ParamField path="stateManager" type="object">
+  Optional state persistence layer with `init()`, `get()`, and `set()` methods
+</ParamField>
+
+Enables saving and restoring list state across sessions or page refreshes.
+
+**Default value:**
+```js
+stateManager: {
+  set() {},
+  get() {},
+  init() {}
+}
+```
+
+**Type signature:**
+```ts
+type StateManager = {
+  init: (context: Context) => void
+  get: (context: Context) => object | null
+  set: (context: Context) => void
+}
+```
+
+**Example:**
+
+<CodeGroup>
+
+```js localStorage Example
+app.use(VueList, {
+  stateManager: {
+    init(context) {
+      // Clean up old versions
+      const prefix = `vue-list--${context.endpoint}--`
+      const currentKey = `${prefix}${context.version}`
+      
+      Object.keys(localStorage)
+        .filter(key => key.startsWith(prefix) && key !== currentKey)
+        .forEach(key => localStorage.removeItem(key))
+    },
+    
+    set(context) {
+      const key = `vue-list--${context.endpoint}--${context.version}`
+      const state = {
+        search: context.search,
+        page: context.page,
+        perPage: context.perPage,
+        sortBy: context.sortBy,
+        sortOrder: context.sortOrder,
+        filters: context.filters,
+        attrSettings: context.attrSettings
+      }
+      localStorage.setItem(key, JSON.stringify(state))
+    },
+    
+    get(context) {
+      const key = `vue-list--${context.endpoint}--${context.version}`
+      try {
+        const stored = localStorage.getItem(key)
+        return stored ? JSON.parse(stored) : null
+      } catch {
+        return null
+      }
+    }
+  }
+})
+```
+
+```js sessionStorage Example
+app.use(VueList, {
+  stateManager: {
+    init(context) {
+      const prefix = `vue-list-${context.endpoint}-`
+      const currentKey = `${prefix}${context.version}`
+      
+      Object.keys(sessionStorage)
+        .filter(key => key.startsWith(prefix) && key !== currentKey)
+        .forEach(key => sessionStorage.removeItem(key))
+    },
+    
+    set(context) {
+      const key = `vue-list-${context.endpoint}-${context.version}`
+      sessionStorage.setItem(key, JSON.stringify(context))
+    },
+    
+    get(context) {
+      const key = `vue-list-${context.endpoint}-${context.version}`
+      const stored = sessionStorage.getItem(key)
+      return stored ? JSON.parse(stored) : null
+    }
+  }
+})
+```
+
+```js Disabled (default)
+app.use(VueList, {
+  stateManager: {
+    init() {}, // No initialization needed
+    set() {},  // Don't save state
+    get() {}   // No state to restore
+  }
+})
+```
+
+</CodeGroup>
+
+**Methods:**
+
+<ParamField path="stateManager.init" type="function">
+  Called once when component mounts. Use for cleanup of old states.
+  
+  ```ts
+  init(context: Context): void
+  ```
+</ParamField>
+
+<ParamField path="stateManager.get" type="function">
+  Called on mount to restore saved state. Return state object or `null`.
+  
+  ```ts
+  get(context: Context): object | null
+  ```
+</ParamField>
+
+<ParamField path="stateManager.set" type="function">
+  Called on every state change to persist the context.
+  
+  ```ts
+  set(context: Context): void
+  ```
+</ParamField>
+
+<Note>
+  The `stateManager` is completely optional. Without it, list state exists only in memory and resets on page refresh.
+</Note>
+
+**See also:**
+- [State Manager Guide](/configuration/state-manager) - Complete documentation with examples
+- [Context Object](/configuration/context-object) - Properties available in context
+
+---
+
+## Complete Example
+
+Here's a production-ready configuration with all options:
+
+```js main.js
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import { ofetch } from 'ofetch'
+import App from './App.vue'
+
+const app = createApp(App)
+
+// Helper for state management keys
+function stateKey(endpoint, version) {
+  return `vue-list--${endpoint}--${version}`
+}
+
+app.use(VueList, {
+  // Add prefix to avoid naming conflicts
+  componentPrefix: 'App',
+  
+  // Define how to fetch data
+  async requestHandler(context) {
+    const { endpoint, page, perPage, search, sortBy, sortOrder, filters, isRefresh } = context
+    
+    // Build sort parameter
+    let sort
+    if (sortBy && sortOrder) {
+      sort = `${sortBy}:${sortOrder}`
+    }
+    
+    try {
+      // Fetch count and data in parallel
+      const [count, data] = await Promise.all([
+        ofetch(`/api/${endpoint}/count`, {
+          params: { search, ...filters }
+        }),
+        ofetch(`/api/${endpoint}`, {
+          params: { page, limit: perPage, search, sort, ...filters },
+          cache: isRefresh ? 'no-cache' : 'default'
+        })
+      ])
+      
+      return {
+        items: data,
+        count: count
+      }
+    } catch (error) {
+      console.error('Failed to fetch:', error)
+      const err = new Error('Failed to load data')
+      err.name = 'FetchError'
+      throw err
+    }
+  },
+  
+  // Persist state to localStorage
+  stateManager: {
+    init(context) {
+      // Clean up states from old versions
+      const prefix = `vue-list--${context.endpoint}--`
+      const current = stateKey(context.endpoint, context.version)
+      
+      Object.keys(localStorage)
+        .filter(key => key.startsWith(prefix) && key !== current)
+        .forEach(key => localStorage.removeItem(key))
+    },
+    
+    set(context) {
+      const key = stateKey(context.endpoint, context.version)
+      const state = {
+        search: context.search,
+        page: context.page,
+        perPage: context.perPage,
+        sortBy: context.sortBy,
+        sortOrder: context.sortOrder,
+        filters: context.filters,
+        attrSettings: context.attrSettings
+      }
+      
+      try {
+        localStorage.setItem(key, JSON.stringify(state))
+      } catch (error) {
+        console.warn('Failed to save list state:', error)
+      }
+    },
+    
+    get(context) {
+      const key = stateKey(context.endpoint, context.version)
+      
+      try {
+        const stored = localStorage.getItem(key)
+        return stored ? JSON.parse(stored) : null
+      } catch (error) {
+        console.warn('Failed to load list state:', error)
+        return null
+      }
+    }
+  }
+})
+
+app.mount('#app')
+```
+
+## TypeScript Support
+
+For TypeScript projects, VueList exports types for all options:
+
+```ts main.ts
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import type { VueListOptions, Context } from '@7span/vue-list'
+
+const app = createApp(App)
+
+const options: VueListOptions = {
+  componentPrefix: 'App',
+  
+  async requestHandler(context: Context) {
+    return {
+      items: [],
+      count: 0
+    }
+  },
+  
+  stateManager: {
+    init(context: Context) {},
+    get(context: Context) { return null },
+    set(context: Context) {}
+  }
+}
+
+app.use(VueList, options)
+app.mount('#app')
+```
+
+## Related
+
+- [Configuration Overview](/configuration/overview) - Getting started with configuration
+- [Request Handler](/configuration/request-handler) - Detailed guide on data fetching
+- [State Manager](/configuration/state-manager) - Detailed guide on state persistence
+- [Context Object](/configuration/context-object) - All properties in the context

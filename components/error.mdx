@@ -1,0 +1,306 @@
+---
+title: VueListError
+description: Display error messages when API requests fail
+---
+
+The `<VueListError>` component automatically displays when an API request fails. It shows only when there's an error and the list is not currently loading.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListError />
+    
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Behavior
+
+- **Shows when**: `error` exists AND `isLoading === false`
+- **Hidden when**: No error or currently loading
+- **Error source**: Any rejected promise from your `requestHandler`
+
+## Slot
+
+The default slot receives the error object:
+
+```vue
+<VueListError #default="{ error }">
+  <div class="error-message">
+    <h3>Failed to load data</h3>
+    <p>{{ error.message }}</p>
+  </div>
+</VueListError>
+```
+
+## Examples
+
+### Styled error box
+
+```vue
+<VueListError>
+  <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+      <svg class="w-6 h-6 text-red-600 flex-shrink-0" fill="none" stroke="currentColor">
+        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <div>
+        <h3 class="font-semibold text-red-800">Failed to load data</h3>
+        <p class="text-sm text-red-700 mt-1">There was a problem loading the list. Please try again.</p>
+      </div>
+    </div>
+  </div>
+</VueListError>
+```
+
+### With retry button
+
+```vue
+<VueList endpoint="products" #default="{ refresh }">
+  <VueListError #default="{ error }">
+    <div class="error-card">
+      <svg class="error-icon" fill="none" stroke="currentColor">
+        <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <h3>Unable to load products</h3>
+      <p>{{ error.message }}</p>
+      <button @click="refresh()" class="btn-retry">
+        Try Again
+      </button>
+    </div>
+  </VueListError>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Simple banner
+
+```vue
+<VueListError>
+  <div class="bg-yellow-100 border-l-4 border-yellow-500 p-4">
+    <p class="text-yellow-800">
+      ⚠️ Could not load data. Please check your connection and try again.
+    </p>
+  </div>
+</VueListError>
+```
+
+### Detailed error display
+
+```vue
+<VueListError #default="{ error }">
+  <div class="error-details">
+    <div class="error-header">
+      <h2>Something went wrong</h2>
+    </div>
+    <div class="error-body">
+      <p><strong>Error:</strong> {{ error.message }}</p>
+      <p v-if="error.code"><strong>Code:</strong> {{ error.code }}</p>
+      <p v-if="error.status"><strong>Status:</strong> {{ error.status }}</p>
+    </div>
+  </div>
+</VueListError>
+```
+
+### With contact support
+
+```vue
+<VueList endpoint="orders" #default="{ refresh }">
+  <VueListError #default="{ error }">
+    <div class="max-w-md mx-auto text-center py-12">
+      <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor">
+        <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">
+        Failed to Load Orders
+      </h2>
+      
+      <p class="text-gray-600 mb-6">
+        {{ error.message }}
+      </p>
+      
+      <div class="flex gap-3 justify-center">
+        <button @click="refresh()" class="btn-primary">
+          Retry
+        </button>
+        <a href="/support" class="btn-secondary">
+          Contact Support
+        </a>
+      </div>
+    </div>
+  </VueListError>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Inline error
+
+```vue
+<VueList endpoint="users">
+  <VueListInitialLoader>
+    <div class="skeleton-loader"></div>
+  </VueListInitialLoader>
+  
+  <VueListError #default="{ error }">
+    <div class="flex items-center gap-2 text-red-600 text-sm p-2 bg-red-50 rounded">
+      <span>❌</span>
+      <span>{{ error.message }}</span>
+    </div>
+  </VueListError>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Toast notification style
+
+```vue
+<VueListError #default="{ error }">
+  <div class="fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-md">
+    <div class="flex items-start gap-3">
+      <svg class="w-6 h-6 flex-shrink-0" fill="currentColor">
+        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
+      </svg>
+      <div>
+        <p class="font-semibold">Error loading data</p>
+        <p class="text-sm opacity-90">{{ error.message }}</p>
+      </div>
+    </div>
+  </div>
+</VueListError>
+```
+
+## Handling errors in requestHandler
+
+Make sure your `requestHandler` throws or rejects on error:
+
+```js
+app.use(VueList, {
+  requestHandler(context) {
+    return axios
+      .get(`/api/${context.endpoint}`, {
+        params: { page: context.page, limit: context.perPage }
+      })
+      .then(({ data }) => ({
+        items: data.results,
+        count: data.total
+      }))
+      .catch((error) => {
+        // Error will be captured by VueList and displayed in VueListError
+        throw error
+      })
+  }
+})
+```
+
+## Error object structure
+
+The error object passed to the slot depends on what your `requestHandler` throws. Common properties:
+
+```js
+{
+  message: "Network request failed",
+  code: "ERR_NETWORK",
+  status: 500,
+  response: { /* Axios response object */ }
+}
+```
+
+<Warning>
+Make sure to re-throw errors in your `requestHandler` so VueList can capture and display them. If you catch and don't re-throw, the error won't be visible.
+</Warning>
+
+## Complete example
+
+```vue
+<template>
+  <VueList endpoint="products" :per-page="20" #default="{ refresh, isLoading }">
+    <div class="product-list">
+      <VueListInitialLoader>
+        <div class="skeleton-grid">
+          <div class="skeleton-card" v-for="i in 6" :key="i"></div>
+        </div>
+      </VueListInitialLoader>
+
+      <VueListError #default="{ error }">
+        <div class="error-container">
+          <div class="error-content">
+            <svg class="error-icon" fill="none" stroke="currentColor">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            
+            <h2>Failed to Load Products</h2>
+            
+            <p class="error-message">{{ error.message }}</p>
+            
+            <div class="error-actions">
+              <button
+                @click="refresh()"
+                :disabled="isLoading"
+                class="btn-retry"
+              >
+                {{ isLoading ? 'Retrying...' : 'Try Again' }}
+              </button>
+              
+              <button @click="clearFilters" class="btn-secondary">
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      </VueListError>
+
+      <VueListItems #default="{ items }">
+        <div class="product-grid">
+          <div v-for="product in items" :key="product.id" class="product-card">
+            {{ product.name }}
+          </div>
+        </div>
+      </VueListItems>
+
+      <VueListPagination />
+    </div>
+  </VueList>
+</template>
+
+<script setup>
+function clearFilters() {
+  // Reset filters and retry
+}
+</script>
+```
+
+<Tip>
+Combine `<VueListError>` with the `refresh()` method to let users retry failed requests.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Empty state" icon="inbox" href="/components/empty">
+    Handle empty results
+  </Card>
+  <Card title="Refresh button" icon="rotate" href="/components/refresh">
+    Add a refresh button to retry
+  </Card>
+</CardGroup>

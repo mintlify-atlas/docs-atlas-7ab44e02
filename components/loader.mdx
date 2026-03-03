@@ -1,0 +1,252 @@
+---
+title: VueListLoader
+description: Display loading state during data fetches (excluding initial load)
+---
+
+The `<VueListLoader>` component shows a loading indicator while data is being fetched. It appears during pagination, filtering, searching, or sorting — but **not** during the initial load (use `<VueListInitialLoader>` for that).
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListInitialLoader>
+      <div>Loading users...</div>
+    </VueListInitialLoader>
+    
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+    
+    <VueListLoader>
+      <div>Updating...</div>
+    </VueListLoader>
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Behavior
+
+- **Shows when**: `isLoading === true` AND `isInitialLoading === false`
+- **Hidden when**: Not loading or during initial load
+- **Use case**: Page changes, filter updates, search queries, sorting changes
+
+## Slot
+
+The default slot renders your custom loading UI:
+
+```vue
+<VueListLoader>
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Refreshing data...</p>
+  </div>
+</VueListLoader>
+```
+
+## Examples
+
+### Spinner
+
+```vue
+<VueListLoader>
+  <div class="flex items-center justify-center py-8">
+    <svg class="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  </div>
+</VueListLoader>
+```
+
+### Loading overlay
+
+```vue
+<div class="relative">
+  <VueListItems #default="{ items }">
+    <div v-for="item in items" :key="item.id">
+      {{ item.name }}
+    </div>
+  </VueListItems>
+  
+  <VueListLoader>
+    <div class="absolute inset-0 bg-white/80 flex items-center justify-center">
+      <div class="text-center">
+        <div class="spinner"></div>
+        <p class="mt-2 text-sm text-gray-600">Loading...</p>
+      </div>
+    </div>
+  </VueListLoader>
+</div>
+```
+
+### Skeleton loader
+
+```vue
+<VueListLoader>
+  <div class="skeleton-container">
+    <div class="skeleton-item" v-for="i in 5" :key="i">
+      <div class="skeleton-line w-3/4"></div>
+      <div class="skeleton-line w-1/2"></div>
+    </div>
+  </div>
+</VueListLoader>
+
+<style>
+.skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
+```
+
+### Progress bar
+
+```vue
+<VueListLoader>
+  <div class="w-full">
+    <div class="h-1 bg-blue-500 animate-pulse"></div>
+  </div>
+</VueListLoader>
+```
+
+### Text indicator
+
+```vue
+<VueListLoader>
+  <div class="text-center py-4 text-sm text-gray-500">
+    <span class="animate-pulse">Refreshing data...</span>
+  </div>
+</VueListLoader>
+```
+
+### Floating indicator
+
+```vue
+<VueListLoader>
+  <div class="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
+    <div class="flex items-center gap-2">
+      <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <span>Loading...</span>
+    </div>
+  </div>
+</VueListLoader>
+```
+
+## Difference from InitialLoader
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>VueListLoader</th>
+      <th>VueListInitialLoader</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>When it shows</td>
+      <td>During subsequent loads</td>
+      <td>Only during first load</td>
+    </tr>
+    <tr>
+      <td>Hides items?</td>
+      <td>No (items remain visible)</td>
+      <td>Yes (items are hidden)</td>
+    </tr>
+    <tr>
+      <td>Use case</td>
+      <td>Page changes, filtering, sorting</td>
+      <td>Initial data fetch</td>
+    </tr>
+    <tr>
+      <td>Typical UI</td>
+      <td>Subtle overlay or indicator</td>
+      <td>Full skeleton or placeholder</td>
+    </tr>
+  </tbody>
+</table>
+
+## Complete example
+
+```vue
+<template>
+  <VueList endpoint="products" :per-page="20">
+    <div class="product-list">
+      <!-- Initial load: Full skeleton -->
+      <VueListInitialLoader>
+        <div class="skeleton-grid">
+          <div class="skeleton-card" v-for="i in 6" :key="i"></div>
+        </div>
+      </VueListInitialLoader>
+
+      <!-- Items with overlay loader -->
+      <div class="relative">
+        <VueListItems #default="{ items }">
+          <div class="grid grid-cols-3 gap-4">
+            <div v-for="product in items" :key="product.id" class="product-card">
+              <img :src="product.image" :alt="product.name" />
+              <h3>{{ product.name }}</h3>
+              <p>{{ product.price }}</p>
+            </div>
+          </div>
+        </VueListItems>
+
+        <!-- Subsequent loads: Subtle overlay -->
+        <VueListLoader>
+          <div class="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-lg px-6 py-4">
+              <div class="flex items-center gap-3">
+                <svg class="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span class="text-sm font-medium">Loading...</span>
+              </div>
+            </div>
+          </div>
+        </VueListLoader>
+      </div>
+
+      <VueListPagination />
+    </div>
+  </VueList>
+</template>
+```
+
+<Tip>
+Use a subtle overlay or indicator for `<VueListLoader>` so users can still see their previous results while new data loads.
+</Tip>
+
+<Note>
+The loader automatically shows/hides based on `isLoading` and `isInitialLoading` state. No manual logic needed.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Initial Loader" icon="hourglass" href="/components/initial-loader">
+    Loading state for first load
+  </Card>
+  <Card title="Error component" icon="triangle-exclamation" href="/components/error">
+    Handle and display errors
+  </Card>
+</CardGroup>

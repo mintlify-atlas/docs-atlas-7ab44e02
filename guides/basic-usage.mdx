@@ -1,0 +1,309 @@
+---
+title: Basic Usage
+description: Learn how to set up and use VueList in your Vue 3 applications
+---
+
+## Overview
+
+VueList is a headless component library that handles the data layer of your lists while giving you complete control over the UI. It manages pagination, filtering, sorting, search, and API calls — you focus on rendering.
+
+## Quick Setup
+
+<Steps>
+  <Step title="Install VueList">
+    First, install the package in your Vue 3 project:
+
+    <CodeGroup>
+      ```bash npm
+      npm install @7span/vue-list
+      ```
+
+      ```bash pnpm
+      pnpm add @7span/vue-list
+      ```
+
+      ```bash yarn
+      yarn add @7span/vue-list
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Configure the Plugin">
+    Set up VueList globally with a `requestHandler` function. This function tells VueList how to fetch data from your API.
+
+    ```js main.js
+    import { createApp } from 'vue'
+    import VueList from '@7span/vue-list'
+    import axios from 'axios'
+    import App from './App.vue'
+
+    const app = createApp(App)
+
+    app.use(VueList, {
+      requestHandler(context) {
+        const { endpoint, page, perPage, search, filters, sortBy, sortOrder } = context
+
+        return axios
+          .get(`/api/${endpoint}`, {
+            params: {
+              page,
+              limit: perPage,
+              search,
+              sort_by: sortBy,
+              sort_order: sortOrder,
+              ...filters
+            }
+          })
+          .then(({ data }) => {
+            return {
+              items: data.results,  // Array of items to display
+              count: data.total     // Total number of items available
+            }
+          })
+      }
+    })
+
+    app.mount('#app')
+    ```
+
+    <Note>
+      The `requestHandler` must return a Promise that resolves with an object containing:
+      - `items`: Array of data to display
+      - `count`: Total number of items (for pagination)
+    </Note>
+  </Step>
+
+  <Step title="Create Your First List">
+    Now you can use VueList components anywhere in your app:
+
+    ```vue users.vue
+    <template>
+      <VueList endpoint="users" :per-page="10">
+        <VueListInitialLoader />
+        <VueListError />
+        
+        <VueListItems>
+          <template #item="{ item }">
+            <div class="user-card">
+              <h3>{{ item.name }}</h3>
+              <p>{{ item.email }}</p>
+            </div>
+          </template>
+        </VueListItems>
+        
+        <VueListPagination />
+      </VueList>
+    </template>
+    ```
+  </Step>
+</Steps>
+
+## Core Components
+
+VueList provides several components that work together:
+
+### VueList (Root)
+
+The root component that manages all state and provides context to child components.
+
+```vue
+<VueList 
+  endpoint="products" 
+  :per-page="25"
+  :page="1"
+  pagination-mode="pagination"
+>
+  <!-- Child components go here -->
+</VueList>
+```
+
+**Key Props:**
+- `endpoint` (required) - Identifier passed to your requestHandler
+- `per-page` - Number of items per page (default: 25)
+- `page` - Initial page number (default: 1)
+- `pagination-mode` - Either `"pagination"` or `"loadMore"`
+
+### VueListItems
+
+Renders the list items. Automatically hidden during initial load.
+
+```vue
+<VueListItems>
+  <template #item="{ item, index }">
+    <div class="product">
+      <span>{{ index + 1 }}. {{ item.name }}</span>
+      <span>${{ item.price }}</span>
+    </div>
+  </template>
+</VueListItems>
+```
+
+### VueListInitialLoader
+
+Shows a loading state only on the first data fetch.
+
+```vue
+<VueListInitialLoader>
+  <div class="spinner">Loading...</div>
+</VueListInitialLoader>
+```
+
+### VueListError
+
+Displays errors from failed API requests.
+
+```vue
+<VueListError v-slot="{ error }">
+  <div class="error-message">
+    <p>{{ error.message }}</p>
+  </div>
+</VueListError>
+```
+
+### VueListEmpty
+
+Shows when the list has no items (and is not loading or in error state).
+
+```vue
+<VueListEmpty>
+  <p>No users found.</p>
+</VueListEmpty>
+```
+
+## Complete Example
+
+Here's a fully working example with all the essential components:
+
+```vue products.vue
+<template>
+  <div class="products-page">
+    <VueList 
+      endpoint="products" 
+      :per-page="12"
+      pagination-mode="pagination"
+    >
+      <div class="products-header">
+        <h1>Products</h1>
+        <VueListSummary v-slot="{ from, to, count }">
+          <span>Showing {{ from }}-{{ to }} of {{ count }} products</span>
+        </VueListSummary>
+      </div>
+
+      <!-- Loading state on first load -->
+      <VueListInitialLoader>
+        <div class="loading-spinner">
+          <p>Loading products...</p>
+        </div>
+      </VueListInitialLoader>
+
+      <!-- Error state -->
+      <VueListError v-slot="{ error }">
+        <div class="error-banner">
+          <p>Failed to load products: {{ error.message }}</p>
+        </div>
+      </VueListError>
+
+      <!-- The actual list -->
+      <VueListItems>
+        <template #default="{ items }">
+          <div class="products-grid">
+            <div 
+              v-for="product in items" 
+              :key="product.id" 
+              class="product-card"
+            >
+              <img :src="product.image" :alt="product.name" />
+              <h3>{{ product.name }}</h3>
+              <p class="price">${{ product.price }}</p>
+              <button>Add to Cart</button>
+            </div>
+          </div>
+        </template>
+      </VueListItems>
+
+      <!-- Empty state -->
+      <VueListEmpty>
+        <div class="empty-state">
+          <p>No products found</p>
+        </div>
+      </VueListEmpty>
+
+      <!-- Pagination -->
+      <VueListPagination />
+    </VueList>
+  </div>
+</template>
+
+<style scoped>
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.product-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.loading-spinner,
+.error-banner,
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+</style>
+```
+
+## Accessing List State
+
+You can access the full list state using the default slot on `<VueList>`:
+
+```vue
+<VueList endpoint="users" v-slot="{ items, count, isLoading, error, refresh }">
+  <div>
+    <button @click="refresh()" :disabled="isLoading">
+      Refresh List
+    </button>
+    
+    <p v-if="isLoading">Loading...</p>
+    <p v-else>Total: {{ count }} users</p>
+    
+    <div v-for="user in items" :key="user.id">
+      {{ user.name }}
+    </div>
+  </div>
+</VueList>
+```
+
+**Available slot props:**
+- `items` - Array of current page items
+- `count` - Total number of items
+- `isLoading` - Whether data is being fetched
+- `isInitialLoading` - Whether this is the first load
+- `error` - Error object if request failed
+- `isEmpty` - Whether items array is empty
+- `response` - Full API response object
+- `refresh()` - Function to manually refetch data
+
+<Tip>
+  Most of the time you won't need to use the scoped slot on `<VueList>` directly. The child components like `<VueListItems>`, `<VueListError>`, etc. automatically access the state they need through Vue's provide/inject.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Pagination Modes" icon="list" href="/guides/pagination-modes">
+    Learn about pagination vs load-more modes
+  </Card>
+  <Card title="Filtering & Sorting" icon="filter" href="/guides/filtering-and-sorting">
+    Add filters and sorting to your lists
+  </Card>
+  <Card title="State Persistence" icon="database" href="/guides/state-persistence">
+    Persist list state across page refreshes
+  </Card>
+  <Card title="Custom Styling" icon="paintbrush" href="/guides/custom-styling">
+    Style components with slots and custom markup
+  </Card>
+</CardGroup>

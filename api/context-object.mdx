@@ -1,0 +1,183 @@
+---
+title: 'Context Object'
+description: 'Understanding the VueList context object'
+---
+
+The context object contains all the current state and configuration of a VueList instance. It's automatically passed to the request handler and state manager methods.
+
+## Context Properties
+
+The context object is a computed property that includes:
+
+<ResponseField name="endpoint" type="string">
+  The API endpoint URL for fetching data. This is passed from the `endpoint` prop of the VueList component.
+  
+  ```javascript
+  endpoint: '/api/users'
+  ```
+</ResponseField>
+
+<ResponseField name="version" type="string | number" default="1">
+  Version identifier used by the state manager to identify configuration changes. When the version changes, the state manager can clean up stale states.
+  
+  ```javascript
+  version: 2
+  ```
+</ResponseField>
+
+<ResponseField name="meta" type="any">
+  Additional metadata passed from the `meta` prop. This can be any data you want to include in the request.
+  
+  ```javascript
+  meta: {
+    userId: 123,
+    teamId: 456
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="search" type="string">
+  Current search query string.
+  
+  ```javascript
+  search: 'john doe'
+  ```
+</ResponseField>
+
+<ResponseField name="page" type="number">
+  Current page number (1-based).
+  
+  ```javascript
+  page: 3
+  ```
+</ResponseField>
+
+<ResponseField name="perPage" type="number" default="25">
+  Number of items to fetch per page.
+  
+  ```javascript
+  perPage: 50
+  ```
+</ResponseField>
+
+<ResponseField name="sortBy" type="string">
+  Name of the field to sort by.
+  
+  ```javascript
+  sortBy: 'created_at'
+  ```
+</ResponseField>
+
+<ResponseField name="sortOrder" type="string">
+  Sort order direction. Either `'asc'` or `'desc'`.
+  
+  ```javascript
+  sortOrder: 'desc'
+  ```
+</ResponseField>
+
+<ResponseField name="filters" type="object">
+  Current filter values from the `v-model:filters` binding.
+  
+  ```javascript
+  filters: {
+    status: 'active',
+    role: 'admin'
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="attrSettings" type="object">
+  Settings for each attribute/column, including visibility.
+  
+  ```javascript
+  attrSettings: {
+    name: { visible: true },
+    email: { visible: true },
+    phone: { visible: false }
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="isRefresh" type="boolean" default="false">
+  Indicates whether the current request is a refresh action. This is `true` when the `refresh()` method is called, `false` otherwise.
+  
+  ```javascript
+  isRefresh: true
+  ```
+</ResponseField>
+
+## Usage in Request Handler
+
+The context object is passed to your request handler:
+
+```javascript
+app.use(VueList, {
+  requestHandler: async (context) => {
+    console.log('Current page:', context.page)
+    console.log('Search query:', context.search)
+    console.log('Filters:', context.filters)
+    
+    // Make API request with context data
+    const response = await fetch(context.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page: context.page,
+        per_page: context.perPage,
+        search: context.search,
+        sort_by: context.sortBy,
+        sort_order: context.sortOrder,
+        filters: context.filters,
+        ...context.meta
+      })
+    })
+    
+    const data = await response.json()
+    
+    return {
+      items: data.items,
+      count: data.total
+    }
+  }
+})
+```
+
+## Usage in State Manager
+
+The context is also passed to state manager methods:
+
+```javascript
+app.use(VueList, {
+  stateManager: {
+    init: (context) => {
+      // Check version and clean up if needed
+      const key = `vuelist-${context.endpoint}-${context.version}`
+      const saved = localStorage.getItem(key)
+      if (saved) {
+        const data = JSON.parse(saved)
+        if (data.version !== context.version) {
+          localStorage.removeItem(key)
+        }
+      }
+    },
+    
+    set: (context) => {
+      // Save state with version
+      const key = `vuelist-${context.endpoint}-${context.version}`
+      localStorage.setItem(key, JSON.stringify(context))
+    },
+    
+    get: (context) => {
+      // Retrieve state
+      const key = `vuelist-${context.endpoint}-${context.version}`
+      const saved = localStorage.getItem(key)
+      return saved ? JSON.parse(saved) : null
+    }
+  }
+})
+```
+
+<Note>
+  The context object is reactive and updates automatically when any state changes.
+</Note>

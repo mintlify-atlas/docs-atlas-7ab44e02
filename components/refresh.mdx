@@ -1,0 +1,365 @@
+---
+title: VueListRefresh
+description: Button to manually refresh list data
+---
+
+The `<VueListRefresh>` component provides a button to manually refresh the current list data. It re-fetches data with the current filters, page, and settings, and passes `isRefresh: true` to the request handler.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListRefresh />
+    
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Slot
+
+The default slot receives a scope object:
+
+```vue
+<VueListRefresh #default="{ refresh, isLoading }">
+  <button @click="refresh()" :disabled="isLoading">
+    {{ isLoading ? 'Refreshing...' : 'Refresh' }}
+  </button>
+</VueListRefresh>
+```
+
+### Scope object
+
+- `refresh(context)` - Function to refresh data. Optionally pass additional context
+- `isLoading` - Boolean indicating if data is currently being fetched
+
+## Behavior
+
+- **Refetches current page**: Doesn't reset to page 1 or change any filters
+- **Passes `isRefresh: true`**: Your request handler receives `context.isRefresh === true`
+- **In loadMore mode**: Resets to page 1 (shows only first page of items)
+- **In pagination mode**: Stays on current page
+
+## Examples
+
+### Basic button
+
+```vue
+<VueListRefresh #default="{ refresh, isLoading }">
+  <button
+    @click="refresh()"
+    :disabled="isLoading"
+    class="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400"
+  >
+    {{ isLoading ? 'Refreshing...' : 'Refresh' }}
+  </button>
+</VueListRefresh>
+```
+
+### With icon
+
+```vue
+<VueListRefresh #default="{ refresh, isLoading }">
+  <button
+    @click="refresh()"
+    :disabled="isLoading"
+    class="flex items-center gap-2 px-4 py-2 border rounded hover:bg-gray-50"
+  >
+    <svg
+      :class="{ 'animate-spin': isLoading }"
+      class="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+    >
+      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+    <span>{{ isLoading ? 'Refreshing' : 'Refresh' }}</span>
+  </button>
+</VueListRefresh>
+```
+
+### Icon-only button
+
+```vue
+<VueListRefresh #default="{ refresh, isLoading }">
+  <button
+    @click="refresh()"
+    :disabled="isLoading"
+    :title="isLoading ? 'Refreshing...' : 'Refresh data'"
+    class="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
+  >
+    <svg
+      :class="{ 'animate-spin': isLoading }"
+      class="w-5 h-5 text-gray-600"
+      fill="none"
+      stroke="currentColor"
+    >
+      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  </button>
+</VueListRefresh>
+```
+
+### In header
+
+```vue
+<VueList endpoint="products" #default="{ count }">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold">Products</h1>
+      <p class="text-sm text-gray-600">{{ count }} total items</p>
+    </div>
+    
+    <VueListRefresh #default="{ refresh, isLoading }">
+      <button
+        @click="refresh()"
+        :disabled="isLoading"
+        class="btn-secondary"
+      >
+        <svg :class="{ 'animate-spin': isLoading }" class="w-4 h-4">
+          <!-- refresh icon -->
+        </svg>
+        Refresh
+      </button>
+    </VueListRefresh>
+  </div>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### With last updated timestamp
+
+```vue
+<template>
+  <VueList endpoint="orders" @on-response="updateTimestamp">
+    <div class="flex items-center justify-between">
+      <p class="text-sm text-gray-600">
+        Last updated: {{ lastUpdated || 'Never' }}
+      </p>
+      
+      <VueListRefresh #default="{ refresh, isLoading }">
+        <button @click="refresh()" :disabled="isLoading">
+          {{ isLoading ? 'Updating...' : 'Refresh' }}
+        </button>
+      </VueListRefresh>
+    </div>
+    
+    <VueListItems #default="{ items }">
+      <!-- render items -->
+    </VueListItems>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const lastUpdated = ref('')
+
+function updateTimestamp() {
+  lastUpdated.value = new Date().toLocaleTimeString()
+}
+</script>
+```
+
+### Auto-refresh every 30 seconds
+
+```vue
+<template>
+  <VueList ref="listRef" endpoint="notifications">
+    <VueListItems #default="{ items }">
+      <!-- render items -->
+    </VueListItems>
+  </VueList>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const listRef = ref()
+let intervalId = null
+
+onMounted(() => {
+  // Auto-refresh every 30 seconds
+  intervalId = setInterval(() => {
+    listRef.value?.refresh()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (intervalId) {
+    clearInterval(intervalId)
+  }
+})
+</script>
+```
+
+### Pull to refresh (mobile)
+
+```vue
+<template>
+  <div
+    @touchstart="handleTouchStart"
+    @touchmove="handleTouchMove"
+    @touchend="handleTouchEnd"
+    class="pull-to-refresh-container"
+  >
+    <div v-if="isPulling" class="pull-indicator" :style="{ height: pullDistance + 'px' }">
+      <span v-if="pullDistance > 80">Release to refresh</span>
+      <span v-else>Pull to refresh</span>
+    </div>
+    
+    <VueList ref="listRef" endpoint="posts">
+      <VueListItems #default="{ items }">
+        <!-- render items -->
+      </VueListItems>
+    </VueList>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref()
+const isPulling = ref(false)
+const pullDistance = ref(0)
+let startY = 0
+
+function handleTouchStart(e) {
+  if (window.scrollY === 0) {
+    startY = e.touches[0].clientY
+    isPulling.value = true
+  }
+}
+
+function handleTouchMove(e) {
+  if (isPulling.value) {
+    const currentY = e.touches[0].clientY
+    pullDistance.value = Math.min((currentY - startY) / 2, 100)
+  }
+}
+
+function handleTouchEnd() {
+  if (pullDistance.value > 80) {
+    listRef.value?.refresh()
+  }
+  isPulling.value = false
+  pullDistance.value = 0
+}
+</script>
+```
+
+### With success feedback
+
+```vue
+<template>
+  <VueList endpoint="users" @on-response="handleRefresh">
+    <VueListRefresh #default="{ refresh, isLoading }">
+      <button @click="handleRefreshClick(refresh)" :disabled="isLoading">
+        {{ isLoading ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </VueListRefresh>
+    
+    <div v-if="showSuccess" class="success-message">
+      ✔ Data refreshed successfully
+    </div>
+    
+    <VueListItems #default="{ items }">
+      <!-- render items -->
+    </VueListItems>
+  </VueList>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const showSuccess = ref(false)
+
+function handleRefreshClick(refresh) {
+  refresh()
+}
+
+function handleRefresh() {
+  showSuccess.value = true
+  setTimeout(() => {
+    showSuccess.value = false
+  }, 3000)
+}
+</script>
+```
+
+## Using refresh() programmatically
+
+You can access the `refresh` method via template ref:
+
+```vue
+<template>
+  <VueList ref="listRef" endpoint="products" />
+  <button @click="refreshList">Refresh</button>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref()
+
+function refreshList() {
+  listRef.value?.refresh()
+}
+</script>
+```
+
+## Passing additional context
+
+You can pass additional context to the refresh call:
+
+```vue
+<VueListRefresh #default="{ refresh }">
+  <button @click="refresh({ source: 'manual-button' })">
+    Refresh
+  </button>
+</VueListRefresh>
+```
+
+Your request handler receives this context:
+
+```js
+app.use(VueList, {
+  requestHandler(context) {
+    console.log(context.isRefresh) // true
+    console.log(context.source) // 'manual-button'
+    
+    // Make API request
+  }
+})
+```
+
+<Tip>
+Use `context.isRefresh` in your request handler to bypass cache or add special headers for refresh requests.
+</Tip>
+
+<Note>
+In `loadMore` pagination mode, refresh resets to page 1 and clears all loaded items. In `pagination` mode, it refetches the current page.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Error component" icon="triangle-exclamation" href="/components/error">
+    Combine refresh with error handling
+  </Card>
+  <Card title="Loader" icon="spinner" href="/components/loader">
+    Show loading state during refresh
+  </Card>
+</CardGroup>

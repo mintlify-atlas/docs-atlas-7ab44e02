@@ -1,0 +1,199 @@
+---
+title: 'VueListItems Props'
+description: 'Props for the VueListItems component'
+---
+
+The `VueListItems` component is responsible for rendering the list items. It provides flexible rendering through slots and automatically hides during initial loading.
+
+## Props
+
+The `VueListItems` component does not accept any props. It automatically injects state from the parent `VueList` component.
+
+## Behavior
+
+- Automatically hidden during initial loading (`isInitialLoading`)
+- Provides default rendering with customizable slots
+- Items are automatically available through Vue's provide/inject
+
+## Slots
+
+### Default Slot
+
+The default slot receives the items array:
+
+```vue
+<VueListItems v-slot="{ items }">
+  <div v-for="item in items" :key="item.id" class="custom-item">
+    <h3>{{ item.name }}</h3>
+    <p>{{ item.description }}</p>
+  </div>
+</VueListItems>
+```
+
+<ParamField path="items" type="array">
+  Array of items from the current page
+</ParamField>
+
+### Item Slot
+
+For more granular control, use the `item` slot to render each individual item:
+
+```vue
+<VueListItems>
+  <template #item="{ item, index }">
+    <div class="user-card">
+      <span class="index">#{{ index + 1 }}</span>
+      <h3>{{ item.name }}</h3>
+      <p>{{ item.email }}</p>
+    </div>
+  </template>
+</VueListItems>
+```
+
+<ParamField path="item" type="object">
+  Individual item object from the items array
+</ParamField>
+
+<ParamField path="index" type="number">
+  Zero-based index of the item in the current page
+</ParamField>
+
+## Default Behavior
+
+If no slots are provided, `VueListItems` renders items as formatted JSON:
+
+```vue
+<VueListItems />
+<!-- Renders: -->
+<!-- <pre>{ ... item data ... }</pre> -->
+```
+
+## Usage Examples
+
+### Basic List
+
+```vue
+<VueList endpoint="/api/users">
+  <VueListItems>
+    <template #item="{ item }">
+      <div class="user">
+        <h3>{{ item.name }}</h3>
+        <p>{{ item.email }}</p>
+      </div>
+    </template>
+  </VueListItems>
+</VueList>
+```
+
+### Table View
+
+```vue
+<VueList endpoint="/api/users">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <VueListItems>
+        <template #item="{ item }">
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.email }}</td>
+            <td>{{ item.role }}</td>
+          </tr>
+        </template>
+      </VueListItems>
+    </tbody>
+  </table>
+</VueList>
+```
+
+### Card Grid
+
+```vue
+<VueList endpoint="/api/products">
+  <VueListItems v-slot="{ items }">
+    <div class="grid">
+      <div v-for="product in items" :key="product.id" class="card">
+        <img :src="product.image" :alt="product.name" />
+        <h3>{{ product.name }}</h3>
+        <p class="price">${{ product.price }}</p>
+        <button>Add to Cart</button>
+      </div>
+    </div>
+  </VueListItems>
+</VueList>
+```
+
+### With Selection
+
+```vue
+<script setup>
+import { ref } from 'vue'
+
+const selectedIds = ref([])
+
+function toggleSelect(id) {
+  const index = selectedIds.value.indexOf(id)
+  if (index > -1) {
+    selectedIds.value.splice(index, 1)
+  } else {
+    selectedIds.value.push(id)
+  }
+}
+</script>
+
+<template>
+  <VueList endpoint="/api/users">
+    <VueListItems>
+      <template #item="{ item }">
+        <div 
+          class="selectable-item"
+          :class="{ selected: selectedIds.includes(item.id) }"
+          @click="toggleSelect(item.id)"
+        >
+          <input 
+            type="checkbox" 
+            :checked="selectedIds.includes(item.id)"
+          />
+          <span>{{ item.name }}</span>
+        </div>
+      </template>
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+### Custom Empty State
+
+```vue
+<VueList endpoint="/api/users" v-slot="{ isEmpty }">
+  <VueListItems v-if="!isEmpty">
+    <template #item="{ item }">
+      <div>{{ item.name }}</div>
+    </template>
+  </VueListItems>
+  
+  <div v-else class="empty-state">
+    <p>No users found</p>
+  </div>
+</VueList>
+```
+
+## Styling
+
+The component renders with a default class name:
+
+```css
+.vue-list__items {
+  /* Your styles */
+}
+```
+
+<Note>
+  The `VueListItems` component must be used inside a `VueList` component to access the items data.
+</Note>

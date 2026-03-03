@@ -1,80 +1,548 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Build your first VueList in 5 minutes
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through creating your first list with VueList. By the end, you'll have a working paginated list with search functionality.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before starting, make sure you have:
 
-### Step 2: Deploy your changes
+- VueList installed in your project
+- A working Vue 3 application with Vue Router
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
+<Card title="Installation" icon="download" href="/installation">
+  Haven't installed VueList yet? Start here.
 </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+## Steps
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+<Steps>
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+<Step title="Install VueList">
 
-</CardGroup>
+First, install the package:
+
+<CodeGroup>
+
+```bash npm
+npm install @7span/vue-list
+```
+
+```bash pnpm
+pnpm add @7span/vue-list
+```
+
+```bash yarn
+yarn add @7span/vue-list
+```
+
+</CodeGroup>
+
+</Step>
+
+<Step title="Configure the Plugin">
+
+Register VueList in your `main.js` file and configure the request handler:
+
+```javascript main.js
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+import VueList from '@7span/vue-list'
+import axios from 'axios'
+
+const app = createApp(App)
+
+app.use(router)
+app.use(VueList, {
+  async requestHandler(context) {
+    const {
+      endpoint,
+      page,
+      perPage,
+      search,
+      sortBy,
+      sortOrder,
+      filters,
+    } = context
+
+    // Make API request with your preferred HTTP client
+    const response = await axios.get(`/api/${endpoint}`, {
+      params: {
+        page,
+        limit: perPage,
+        search,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        ...filters,
+      },
+    })
+
+    // Return items and total count
+    return {
+      items: response.data.items,
+      count: response.data.total,
+    }
+  },
+})
+
+app.mount('#app')
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The `requestHandler` is called automatically whenever the list needs to fetch data (on mount, page change, search, etc.)
 </Note>
+
+</Step>
+
+<Step title="Use VueList in a Component">
+
+Now create a simple list component:
+
+```vue UserList.vue
+<template>
+  <div class="user-list">
+    <h1>Users</h1>
+    
+    <VueList endpoint="users" :per-page="10" pagination-mode="pagination">
+      <!-- Search input -->
+      <VueListSearch placeholder="Search users..." />
+      
+      <!-- Loading state on first load -->
+      <VueListInitialLoader>
+        <p>Loading users...</p>
+      </VueListInitialLoader>
+      
+      <!-- Loading state on subsequent loads -->
+      <VueListLoader>
+        <p>Loading...</p>
+      </VueListLoader>
+      
+      <!-- Error state -->
+      <VueListError v-slot="{ error }">
+        <div class="error">
+          <p>Failed to load users: {{ error.message }}</p>
+        </div>
+      </VueListError>
+      
+      <!-- List items -->
+      <VueListItems #default="{items}">
+        <div class="users-grid">
+          <div v-for="user in items" :key="user.id" class="user-card">
+            <h3>{{ user.name }}</h3>
+            <p>{{ user.email }}</p>
+          </div>
+        </div>
+      </VueListItems>
+      
+      <!-- Empty state -->
+      <VueListEmpty>
+        <p>No users found</p>
+      </VueListEmpty>
+      
+      <!-- Pagination controls -->
+      <VueListPagination />
+      
+      <!-- Results summary -->
+      <VueListSummary />
+    </VueList>
+  </div>
+</template>
+
+<style scoped>
+.user-list {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.user-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.error {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+</style>
+```
+
+<Tip>
+  The `endpoint` prop value ("users") is passed to your `requestHandler` so it knows which API endpoint to call.
+</Tip>
+
+</Step>
+
+<Step title="Customize the UI (Optional)">
+
+All VueList components accept slots for full customization:
+
+```vue UserList.vue
+<template>
+  <VueList endpoint="users" :per-page="10">
+    <!-- Custom search component -->
+    <VueListSearch v-slot="{ search, setSearch }">
+      <input 
+        type="text" 
+        :value="search" 
+        @input="setSearch($event.target.value)"
+        placeholder="Search..."
+        class="custom-search-input"
+      />
+    </VueListSearch>
+    
+    <!-- Custom pagination -->
+    <VueListPagination v-slot="{ page, pagesCount, hasNext, hasPrev, next, prev, first, last }">
+      <div class="custom-pagination">
+        <button @click="first" :disabled="!hasPrev">First</button>
+        <button @click="prev" :disabled="!hasPrev">Previous</button>
+        <span>Page {{ page }} of {{ pagesCount }}</span>
+        <button @click="next" :disabled="!hasNext">Next</button>
+        <button @click="last" :disabled="!hasNext">Last</button>
+      </div>
+    </VueListPagination>
+    
+    <!-- Rest of your list -->
+    <VueListItems #default="{items}">
+      <!-- Your items -->
+    </VueListItems>
+  </VueList>
+</template>
+```
+
+</Step>
+
+</Steps>
+
+## Complete Working Example
+
+Here's a complete example with all the common features:
+
+```vue ProductList.vue
+<template>
+  <div class="product-list">
+    <div class="header">
+      <h1>Products</h1>
+      <VueListRefresh v-slot="{ refresh, isLoading }">
+        <button @click="refresh" :disabled="isLoading">
+          {{ isLoading ? 'Refreshing...' : 'Refresh' }}
+        </button>
+      </VueListRefresh>
+    </div>
+    
+    <VueList 
+      endpoint="products" 
+      :per-page="12"
+      pagination-mode="pagination"
+      :filters="filters"
+    >
+      <div class="controls">
+        <VueListSearch 
+          placeholder="Search products..." 
+          :debounce-time="500"
+        />
+        
+        <VueListPerPage 
+          v-slot="{ perPage, setPerPage }" 
+          :options="[12, 24, 48]"
+        >
+          <select :value="perPage" @change="setPerPage(Number($event.target.value))">
+            <option value="12">12 per page</option>
+            <option value="24">24 per page</option>
+            <option value="48">48 per page</option>
+          </select>
+        </VueListPerPage>
+      </div>
+      
+      <VueListInitialLoader>
+        <div class="loader">Loading products...</div>
+      </VueListInitialLoader>
+      
+      <VueListLoader>
+        <div class="loader-overlay">Loading...</div>
+      </VueListLoader>
+      
+      <VueListError v-slot="{ error }">
+        <div class="error-message">
+          <h3>Error Loading Products</h3>
+          <p>{{ error.message }}</p>
+        </div>
+      </VueListError>
+      
+      <VueListItems #default="{items}">
+        <div class="products-grid">
+          <div 
+            v-for="product in items" 
+            :key="product.id" 
+            class="product-card"
+          >
+            <img :src="product.image" :alt="product.name" />
+            <h3>{{ product.name }}</h3>
+            <p class="price">${{ product.price }}</p>
+            <button>Add to Cart</button>
+          </div>
+        </div>
+      </VueListItems>
+      
+      <VueListEmpty>
+        <div class="empty-state">
+          <p>No products found. Try a different search.</p>
+        </div>
+      </VueListEmpty>
+      
+      <div class="footer">
+        <VueListSummary v-slot="{ from, to, count }">
+          <p>Showing {{ from }}-{{ to }} of {{ count }} products</p>
+        </VueListSummary>
+        
+        <VueListPagination />
+      </div>
+    </VueList>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const filters = ref({
+  category: 'electronics',
+  inStock: true
+})
+</script>
+
+<style scoped>
+.product-list {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.product-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.product-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.price {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #059669;
+  margin: 0.5rem 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+}
+
+.loader {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+.error-message {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+</style>
+```
+
+## Key Concepts
+
+### Component Props
+
+The `VueList` root component accepts these key props:
+
+- `endpoint` - The API endpoint name (passed to your requestHandler)
+- `per-page` - Number of items per page (default: 25)
+- `pagination-mode` - Either `"pagination"` or `"loadMore"` (default: "pagination")
+- `filters` - Reactive filter object that triggers refetch when changed
+- `search` - Initial search query
+- `sort-by` - Initial sort column
+- `sort-order` - Initial sort direction ("asc" or "desc")
+
+### Slot Props
+
+Most components expose slot props for customization:
+
+```vue
+<VueListItems #default="{items}">
+  <!-- items: Array of current page items -->
+</VueListItems>
+
+<VueListPagination v-slot="{ page, pagesCount, hasNext, hasPrev, next, prev }">
+  <!-- Full control over pagination UI -->
+</VueListPagination>
+
+<VueListSearch v-slot="{ search, setSearch }">
+  <!-- Custom search input -->
+</VueListSearch>
+```
+
+### Reactive Filters
+
+Filters are fully reactive - any change automatically refetches the list:
+
+```vue
+<script setup>
+import { ref } from 'vue'
+
+const filters = ref({
+  category: 'electronics'
+})
+
+function changeCategory(newCategory) {
+  filters.value.category = newCategory
+  // List automatically refetches!
+}
+</script>
+
+<template>
+  <VueList endpoint="products" :filters="filters">
+    <!-- List content -->
+  </VueList>
+</template>
+```
+
+## Load More Mode
+
+Switch to load-more pagination for infinite scroll-style UIs:
+
+```vue
+<template>
+  <VueList 
+    endpoint="posts" 
+    :per-page="20"
+    pagination-mode="loadMore"
+  >
+    <VueListItems #default="{items}">
+      <!-- Items accumulate as more are loaded -->
+      <PostCard v-for="post in items" :key="post.id" :post="post" />
+    </VueListItems>
+    
+    <VueListLoadMore v-slot="{ loadMore, hasMore, isLoading }">
+      <button 
+        v-if="hasMore" 
+        @click="loadMore" 
+        :disabled="isLoading"
+      >
+        {{ isLoading ? 'Loading...' : 'Load More' }}
+      </button>
+    </VueListLoadMore>
+  </VueList>
+</template>
+```
+
+## Programmatic Access
+
+Access list state and methods via template refs:
+
+```vue
+<template>
+  <VueList ref="listRef" endpoint="users" :per-page="10">
+    <!-- List content -->
+  </VueList>
+  
+  <button @click="refreshList">Refresh</button>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const listRef = ref(null)
+
+function refreshList() {
+  listRef.value.refresh()
+}
+
+function goToPage(pageNum) {
+  listRef.value.setPage(pageNum)
+}
+
+function updateSearch(query) {
+  listRef.value.setSearch(query)
+}
+</script>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="cube" href="/components/overview">
+    Explore all available components and their props
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Configure request handler and state manager
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/plugin">
+    Detailed API documentation
+  </Card>
+  <Card title="Guides" icon="book-open" href="/guides/basic-usage">
+    Learn advanced usage patterns
+  </Card>
+  <Card title="Examples" icon="code" href="/examples">
+    See more real-world examples
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Detailed API documentation
+  </Card>
+  <Card title="Customization" icon="palette" href="/customization">
+    Learn how to customize components
+  </Card>
+</CardGroup>

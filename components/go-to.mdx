@@ -1,0 +1,233 @@
+---
+title: VueListGoTo
+description: Dropdown to jump directly to a specific page
+---
+
+The `<VueListGoTo>` component renders a dropdown with all available page numbers, allowing users to jump directly to any page without clicking through pagination buttons.
+
+## Basic usage
+
+```vue
+<template>
+  <VueList endpoint="users">
+    <VueListItems #default="{ items }">
+      <div v-for="user in items" :key="user.id">
+        {{ user.name }}
+      </div>
+    </VueListItems>
+    
+    <VueListGoTo />
+  </VueList>
+</template>
+```
+
+## Props
+
+This component has no props. It uses Vue's `inject` to access the list state from the parent `<VueList>` component.
+
+## Slot
+
+The default slot receives a scope object:
+
+```vue
+<VueListGoTo #default="{ page, pages, pagesCount, setPage }">
+  <select :value="page" @change="setPage(Number($event.target.value))">
+    <option v-for="pageNum in pages" :key="pageNum" :value="pageNum">
+      Page {{ pageNum }}
+    </option>
+  </select>
+</VueListGoTo>
+```
+
+### Scope object
+
+- `page` - Current page number
+- `pages` - Array of all page numbers [1, 2, 3, ..., n]
+- `pagesCount` - Total number of pages
+- `setPage(num)` - Function to navigate to a specific page
+
+## Examples
+
+### Styled dropdown
+
+```vue
+<VueListGoTo>
+  <template #default="{ page, pages, pagesCount, setPage }">
+    <div class="go-to-page">
+      <label class="text-sm font-medium">Go to page:</label>
+      <select
+        :value="page"
+        @change="setPage(Number($event.target.value))"
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+      >
+        <option v-for="pageNum in pages" :key="pageNum" :value="pageNum">
+          {{ pageNum }}
+        </option>
+      </select>
+      <span class="text-sm text-gray-600">of {{ pagesCount }}</span>
+    </div>
+  </template>
+</VueListGoTo>
+```
+
+### Compact inline
+
+```vue
+<VueListGoTo>
+  <template #default="{ page, pages, setPage }">
+    <div class="flex items-center gap-2">
+      <span class="text-sm">Page:</span>
+      <select
+        :value="page"
+        @change="setPage(Number($event.target.value))"
+        class="text-sm border rounded px-2 py-1"
+      >
+        <option v-for="p in pages" :key="p" :value="p">{{ p }}</option>
+      </select>
+    </div>
+  </template>
+</VueListGoTo>
+```
+
+### With total count
+
+```vue
+<VueList endpoint="products" #default="{ count }">
+  <div class="pagination-controls">
+    <VueListGoTo>
+      <template #default="{ page, pages, pagesCount, setPage }">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label>Jump to:</label>
+            <select
+              :value="page"
+              @change="setPage(Number($event.target.value))"
+              class="border rounded px-3 py-2"
+            >
+              <option v-for="p in pages" :key="p" :value="p">
+                Page {{ p }}
+              </option>
+            </select>
+          </div>
+          <span class="text-sm text-gray-600">
+            {{ pagesCount }} pages • {{ count }} total items
+          </span>
+        </div>
+      </template>
+    </VueListGoTo>
+  </div>
+  
+  <VueListItems #default="{ items }">
+    <!-- render items -->
+  </VueListItems>
+</VueList>
+```
+
+### Number input alternative
+
+```vue
+<VueListGoTo>
+  <template #default="{ page, pagesCount, setPage }">
+    <div class="flex items-center gap-2">
+      <label class="text-sm">Page:</label>
+      <input
+        type="number"
+        :value="page"
+        @change="setPage(Number($event.target.value))"
+        :min="1"
+        :max="pagesCount"
+        class="w-20 px-2 py-1 border rounded"
+      />
+      <span class="text-sm text-gray-600">/ {{ pagesCount }}</span>
+    </div>
+  </template>
+</VueListGoTo>
+```
+
+### Combined with pagination
+
+```vue
+<div class="pagination-bar">
+  <VueListPagination :page-links="5" />
+  
+  <div class="ml-auto">
+    <VueListGoTo>
+      <template #default="{ page, pages, setPage }">
+        <select :value="page" @change="setPage(Number($event.target.value))">
+          <option v-for="p in pages" :key="p" :value="p">
+            Go to page {{ p }}
+          </option>
+        </select>
+      </template>
+    </VueListGoTo>
+  </div>
+</div>
+```
+
+### Mobile-friendly
+
+```vue
+<VueListGoTo>
+  <template #default="{ page, pages, pagesCount, setPage }">
+    <!-- Desktop: Full dropdown -->
+    <div class="hidden md:flex items-center gap-2">
+      <span>Jump to page:</span>
+      <select
+        :value="page"
+        @change="setPage(Number($event.target.value))"
+        class="border rounded px-3 py-2"
+      >
+        <option v-for="p in pages" :key="p" :value="p">{{ p }}</option>
+      </select>
+      <span class="text-gray-600">of {{ pagesCount }}</span>
+    </div>
+
+    <!-- Mobile: Compact number input -->
+    <div class="md:hidden flex items-center gap-1">
+      <input
+        type="number"
+        :value="page"
+        @change="setPage(Number($event.target.value))"
+        :min="1"
+        :max="pagesCount"
+        class="w-16 px-2 py-1 text-center border rounded"
+      />
+      <span class="text-sm">/{{ pagesCount }}</span>
+    </div>
+  </template>
+</VueListGoTo>
+```
+
+## Use cases
+
+### When to use GoTo
+
+- Large number of pages (20+)
+- Users need to jump to specific pages frequently
+- Complementing standard pagination for power users
+- Mobile layouts where showing all page numbers isn't practical
+
+### When to use Pagination instead
+
+- Small number of pages (< 10)
+- Sequential browsing is the primary use case
+- Visual page number buttons are preferred
+
+<Tip>
+Combine `<VueListGoTo>` with `<VueListPagination>` to provide both sequential navigation and quick jumping.
+</Tip>
+
+<Warning>
+For very large datasets (1000+ pages), consider using search or filtering instead of page-by-page navigation.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Pagination" icon="arrows-left-right" href="/components/pagination">
+    Standard page-based navigation
+  </Card>
+  <Card title="Summary" icon="chart-simple" href="/components/summary">
+    Display page and item counts
+  </Card>
+</CardGroup>

@@ -1,0 +1,185 @@
+---
+title: Configuration Overview
+description: Learn how to configure VueList with global options and understand the plugin setup
+---
+
+## Overview
+
+VueList is installed as a Vue plugin using `app.use()`. During installation, you can pass a configuration object that defines global behavior for all VueList instances in your application.
+
+The configuration consists of three main options:
+
+1. **requestHandler** - The function that fetches data from your API
+2. **stateManager** - Optional persistence layer for list state
+3. **componentPrefix** - Optional prefix for component names
+
+## Basic Configuration
+
+Here's a minimal configuration example:
+
+```js main.js
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import axios from 'axios'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  requestHandler(context) {
+    const { endpoint, page, perPage, search, sortBy, sortOrder, filters } = context
+    
+    return axios
+      .get(`/api/${endpoint}`, {
+        params: {
+          page,
+          limit: perPage,
+          search,
+          sort: sortBy,
+          order: sortOrder,
+          ...filters
+        }
+      })
+      .then(({ data }) => ({
+        items: data.items,
+        count: data.total
+      }))
+  }
+})
+
+app.mount('#app')
+```
+
+## Complete Configuration
+
+Here's a full example with all available options:
+
+```js main.js
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import { ofetch } from 'ofetch'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(VueList, {
+  // Add prefix to all VueList components
+  componentPrefix: 'My',
+  
+  // Define how to fetch data
+  async requestHandler(context) {
+    const { endpoint, page, perPage, search, sortBy, sortOrder } = context
+    
+    const [count, items] = await Promise.all([
+      ofetch(`/api/${endpoint}/count`),
+      ofetch(`/api/${endpoint}`, {
+        params: { page, limit: perPage, search }
+      })
+    ])
+    
+    return { items, count }
+  },
+  
+  // Persist state to localStorage
+  stateManager: {
+    init(context) {
+      // Clean up old versions
+      const prefix = `vue-list--${context.endpoint}--`
+      const currentKey = `${prefix}${context.version}`
+      
+      Object.keys(localStorage)
+        .filter(key => key.startsWith(prefix) && key !== currentKey)
+        .forEach(key => localStorage.removeItem(key))
+    },
+    
+    set(context) {
+      const key = `vue-list--${context.endpoint}--${context.version}`
+      const state = {
+        search: context.search,
+        page: context.page,
+        perPage: context.perPage,
+        sortBy: context.sortBy,
+        sortOrder: context.sortOrder,
+        filters: context.filters,
+        attrSettings: context.attrSettings
+      }
+      localStorage.setItem(key, JSON.stringify(state))
+    },
+    
+    get(context) {
+      const key = `vue-list--${context.endpoint}--${context.version}`
+      const stored = localStorage.getItem(key)
+      return stored ? JSON.parse(stored) : null
+    }
+  }
+})
+
+app.mount('#app')
+```
+
+<Note>
+  The configuration you provide during `app.use()` is applied globally to all `<VueList>` components in your app. Individual components can override the `requestHandler` via props if needed.
+</Note>
+
+## Component Registration
+
+When you install VueList, the following components are automatically registered globally:
+
+- `<VueList>` - Main container component
+- `<VueListInitialLoader>` - Loading state on first load
+- `<VueListLoader>` - Loading state during data fetches
+- `<VueListItems>` - Renders list items
+- `<VueListError>` - Displays error states
+- `<VueListPagination>` - Pagination controls
+- `<VueListSummary>` - Shows "Showing X to Y of Z"
+- `<VueListPerPage>` - Per-page selector
+- `<VueListSearch>` - Search input
+- `<VueListLoadMore>` - Load more button
+- `<VueListGoTo>` - Go to page input
+- `<VueListRefresh>` - Refresh button
+- `<VueListAttributes>` - Column visibility controls
+- `<VueListEmpty>` - Empty state
+
+<Warning>
+  All components are prefixed with the `componentPrefix` option. If you set `componentPrefix: 'My'`, components become `<MyVueList>`, `<MyVueListItems>`, etc.
+</Warning>
+
+## Using with TypeScript
+
+VueList is written in Vue 3 with full composition API support:
+
+```ts main.ts
+import { createApp } from 'vue'
+import VueList from '@7span/vue-list'
+import type { VueListOptions } from '@7span/vue-list'
+import App from './App.vue'
+
+const app = createApp(App)
+
+const options: VueListOptions = {
+  requestHandler: async (context) => {
+    // Your implementation
+    return {
+      items: [],
+      count: 0
+    }
+  }
+}
+
+app.use(VueList, options)
+app.mount('#app')
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Request Handler" icon="code" href="/configuration/request-handler">
+    Learn how to implement the data fetching function
+  </Card>
+  <Card title="State Manager" icon="database" href="/configuration/state-manager">
+    Persist list state across sessions
+  </Card>
+  <Card title="All Options" icon="sliders" href="/configuration/options">
+    Complete reference of all configuration options
+  </Card>
+</CardGroup>
